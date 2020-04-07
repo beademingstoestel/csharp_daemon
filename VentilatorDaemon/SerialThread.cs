@@ -125,6 +125,7 @@ namespace VentilatorDaemon
                     bytesToSend[bytes.Length + 3] = bytesToSend.CalculateCrc(bytes.Length + 3);
                     bytesToSend[bytes.Length + 4] = 10; // \n
 
+                    Console.WriteLine(ASCIIEncoding.ASCII.GetString(bytesToSend));
                     // send message
                     serialPort.Write(bytesToSend, 0, bytesToSend.Length);
 
@@ -215,19 +216,23 @@ namespace VentilatorDaemon
                 var messageId = message[message.Length - 3];
                 CreateAndSendAck(messageId);
 
-                alarmReceived = true;
 
-                Task.Run(async () =>
+                if (!alarmReceived)
                 {
-                    while (alarmReceived)
-                    {
-                        // send alarm ping
-                        var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("ALARM={0}", 0));
-                        WriteData(bytes);
+                    alarmReceived = true;
 
-                        await Task.Delay(500);
-                    }
-                });
+                    Task.Run(async () =>
+                    {
+                        while (alarmReceived)
+                        {
+                            // send alarm ping
+                            var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("ALARM={0}", 0));
+                            WriteData(bytes);
+
+                            await Task.Delay(500);
+                        }
+                    });
+                }
             }
             else
             {
