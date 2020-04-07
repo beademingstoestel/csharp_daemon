@@ -53,8 +53,9 @@ namespace VentilatorDaemon
     public class SerialThread
     {
         private SerialPort serialPort = new SerialPort();
-        private Object lockObj = new Object(); 
+        private Object lockObj = new Object();
         private SemaphoreSlim saveSettingLock = new SemaphoreSlim(1, 1);
+        private SemaphoreSlim saveMongoLock = new SemaphoreSlim(1, 1);
         private byte msgId = 0;
 
         FlurlClient flurlClient = new FlurlClient("http://localhost:3001");
@@ -175,11 +176,23 @@ namespace VentilatorDaemon
 
         public async Task SendMeasurementToMongo(string collection, DateTime timeStamp, float value)
         {
-            await database.GetCollection<ValueEntry>(collection).InsertOneAsync(new ValueEntry()
+            await saveMongoLock.WaitAsync();
+            try
             {
-                Value = value,
-                LoggedAt = timeStamp,
-            });
+                await database.GetCollection<ValueEntry>(collection).InsertOneAsync(new ValueEntry()
+                {
+                    Value = value,
+                    LoggedAt = timeStamp,
+                });
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error while sending setting to server: {0}", e.Message);
+            }
+            finally
+            {
+                saveMongoLock.Release();
+            }
         }
 
         public void HandleMessage(byte[] message, DateTime timeStamp)
@@ -243,7 +256,7 @@ namespace VentilatorDaemon
                     {
                         if (message.StartsWith(measurement.Item2))
                         {
-                            
+
                             var measurementString = ASCIIEncoding.ASCII.GetString(message);
                             var tokens = measurementString.Split('=', StringSplitOptions.RemoveEmptyEntries);
 
