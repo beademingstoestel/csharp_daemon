@@ -16,6 +16,7 @@ namespace VentilatorDaemon
 
             SerialThread serialThread = new SerialThread();
             WebSocketThread webSocketThread = new WebSocketThread("ws://localhost:3001", serialThread);
+            ProcessingThread processingThread = new ProcessingThread(serialThread);
 
             serialThread.SetPortName();
 

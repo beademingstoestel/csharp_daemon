@@ -124,7 +124,6 @@ namespace VentilatorDaemon
                     bytesToSend[bytes.Length + 4] = 10; // \n
 
                     // send message
-                    Console.WriteLine(ASCIIEncoding.ASCII.GetString(bytesToSend));
                     serialPort.Write(bytesToSend, 0, bytesToSend.Length);
 
                     msgId++;
