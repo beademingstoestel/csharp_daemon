@@ -13,10 +13,14 @@ namespace VentilatorDaemon
             var cancellationToken = cancellationTokenSource.Token;
 
             WebSocketThread webSocketThread = new WebSocketThread("ws://localhost:3001");
+            SerialThread serialThread = new SerialThread();
+
+            serialThread.SetPortName();
 
             var webSocketTask = webSocketThread.Start(cancellationToken);
+            var serialTask = serialThread.Start(cancellationToken);
 
-            Task.WaitAll(webSocketTask);
+            Task.WaitAll(webSocketTask, serialTask);
 
             Console.WriteLine("Daemon finished");
         }

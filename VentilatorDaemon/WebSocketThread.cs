@@ -144,6 +144,11 @@ namespace VentilatorDaemon
 
                     Thread.Sleep(10);
                 }
+
+                if (connected)
+                {
+                    webSocketWrapper.Disconnect();
+                }
             });
         }
     }

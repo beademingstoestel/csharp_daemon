@@ -49,6 +49,13 @@ namespace VentilatorDaemon
             return ConnectAsync().Result;
         }
 
+        public WebSocketWrapper Disconnect()
+        {
+            ws.Dispose();
+
+            return this;
+        }
+
         /// <summary>
         /// Set the Action to call when the connection has been established.
         /// </summary>
