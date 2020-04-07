@@ -57,6 +57,7 @@ namespace VentilatorDaemon
         private SemaphoreSlim saveSettingLock = new SemaphoreSlim(1, 1);
         private SemaphoreSlim saveMongoLock = new SemaphoreSlim(1, 1);
         private byte msgId = 0;
+        private bool alarmReceived = false;
 
         FlurlClient flurlClient = new FlurlClient("http://localhost:3001");
 
@@ -214,9 +215,19 @@ namespace VentilatorDaemon
                 var messageId = message[message.Length - 3];
                 CreateAndSendAck(messageId);
 
-                // send back alarm
-                var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("ALARM={0}", 0));
-                WriteData(bytes);
+                alarmReceived = true;
+
+                Task.Run(async () =>
+                {
+                    while (alarmReceived)
+                    {
+                        // send alarm ping
+                        var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("ALARM={0}", 0));
+                        WriteData(bytes);
+
+                        await Task.Delay(500);
+                    }
+                });
             }
             else
             {
@@ -235,6 +246,8 @@ namespace VentilatorDaemon
                         var tokens = settingString.Split('=', StringSplitOptions.RemoveEmptyEntries);
 
                         var floatValue = 0.0f;
+
+                        Console.WriteLine("Received setting {0} with value {1}", setting.Item1, floatValue);
 
                         if (float.TryParse(tokens[1], out floatValue))
                         {
@@ -342,6 +355,7 @@ namespace VentilatorDaemon
                     {
                         // todo log error
                         Console.WriteLine(e.Message);
+                        alarmReceived = false;
                     }
                 }
 
