@@ -109,6 +109,7 @@ namespace VentilatorDaemon
 
                                     _ = Task.Run(() =>
                                      {
+                                         Console.WriteLine("Change setting {0}={1}", name, propertyValue);
                                          var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", name, propertyValue));
                                          serialThread.WriteData(bytes);
                                      });
