@@ -16,14 +16,15 @@ namespace VentilatorDaemon
 
             SerialThread serialThread = new SerialThread();
             WebSocketThread webSocketThread = new WebSocketThread("ws://localhost:3001", serialThread);
-            ProcessingThread processingThread = new ProcessingThread(serialThread);
+            ProcessingThread processingThread = new ProcessingThread(serialThread, webSocketThread);
 
             serialThread.SetPortName();
 
             var webSocketTask = webSocketThread.Start(cancellationToken);
             var serialTask = serialThread.Start(cancellationToken);
+            var processingTask = processingThread.Start(cancellationToken);
 
-            Task.WaitAll(webSocketTask, serialTask);
+            Task.WaitAll(webSocketTask, serialTask, processingTask);
 
             Console.WriteLine("Daemon finished");
         }

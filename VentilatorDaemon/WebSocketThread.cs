@@ -14,6 +14,9 @@ namespace VentilatorDaemon
         private readonly SerialThread serialThread;
         private WebSocketWrapper webSocketWrapper;
 
+        private Dictionary<string, float> settings = new Dictionary<string, float>();
+
+
         private bool connected = false;
         private int id = 0;
 
@@ -43,6 +46,11 @@ namespace VentilatorDaemon
         {
             this.uri = uri;
             this.serialThread = serialThread;
+        }
+
+        public Dictionary<string, float> Settings
+        {
+            get => settings;
         }
 
         private async Task<WebSocketWrapper> ConnectWebSocket()
@@ -107,12 +115,18 @@ namespace VentilatorDaemon
                                 {
                                     var propertyValue = property.Value.ToObject<float>();
 
+                                    this.settings[name] = propertyValue;
+
                                     _ = Task.Run(() =>
                                      {
                                          Console.WriteLine("Change setting {0}={1}", name, propertyValue);
                                          var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", name, propertyValue));
                                          serialThread.WriteData(bytes);
                                      });
+                                } 
+                                else if (name == "RA")
+                                {
+                                    serialThread.ResetAlarm();
                                 }
                             }
                         }

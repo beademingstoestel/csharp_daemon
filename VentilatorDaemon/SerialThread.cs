@@ -60,6 +60,8 @@ namespace VentilatorDaemon
         private byte msgId = 0;
         private bool alarmReceived = false;
 
+        private int alarmValue = 0;
+
         private CancellationTokenSource ackTokenSource = new CancellationTokenSource();
 
         FlurlClient flurlClient = new FlurlClient("http://localhost:3001");
@@ -112,6 +114,17 @@ namespace VentilatorDaemon
             database = client.GetDatabase("beademing");
         }
 
+        public int AlarmValue
+        {
+            get => alarmValue;
+            set
+            {
+                alarmValue = alarmValue | value;
+
+                SendAlarmToServer(AlarmValue);
+            }
+        }
+
         public void WriteData(byte[] bytes)
         {
             lock (lockObj)
@@ -130,7 +143,7 @@ namespace VentilatorDaemon
                     bytesToSend[bytes.Length + 3] = bytesToSend.CalculateCrc(bytes.Length + 3);
                     bytesToSend[bytes.Length + 4] = 10; // \n
 
-                    Console.WriteLine("Send message {0} ", ASCIIEncoding.ASCII.GetString(bytesToSend));
+                    //Console.WriteLine("Send message {0} ", ASCIIEncoding.ASCII.GetString(bytesToSend));
 
                     waitingForAck.TryAdd(msgId, Tuple.Create(bytes, DateTime.UtcNow));
                     // send message
@@ -159,6 +172,30 @@ namespace VentilatorDaemon
                     serialPort.Write(bytesToSend, 0, 8);
                 }
                 catch (Exception) { }
+            }
+        }
+
+        public void ResetAlarm()
+        {
+            this.alarmValue = 0;
+        }
+
+        public async Task SendAlarmToServer(int value)
+        {
+            try
+            {
+                Dictionary<string, float> dict = new Dictionary<string, float>();
+                dict.Add("value", value);
+
+                await flurlClient.Request("/api/alarms")
+                    .PutJsonAsync(dict);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("Error while sending setting to server: {0}", e.Message);
+            }
+            finally
+            {
             }
         }
 
@@ -240,7 +277,7 @@ namespace VentilatorDaemon
                         while (alarmReceived)
                         {
                             // send alarm ping
-                            var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("ALARM={0}", 0));
+                            var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("ALARM={0}", alarmValue));
                             WriteData(bytes);
 
                             await Task.Delay(500);
