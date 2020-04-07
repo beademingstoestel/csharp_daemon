@@ -2,6 +2,7 @@
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.IO.Ports;
@@ -59,6 +60,8 @@ namespace VentilatorDaemon
         private byte msgId = 0;
         private bool alarmReceived = false;
 
+        private CancellationTokenSource ackTokenSource = new CancellationTokenSource();
+
         FlurlClient flurlClient = new FlurlClient("http://localhost:3001");
 
         public List<Tuple<string, byte[]>> measurementIds = new List<Tuple<string, byte[]>>()
@@ -97,6 +100,8 @@ namespace VentilatorDaemon
         private readonly MongoClient client;
         private readonly IMongoDatabase database;
 
+        private ConcurrentDictionary<byte, Tuple<byte[], DateTime>> waitingForAck = new ConcurrentDictionary<byte, Tuple<byte[], DateTime>>();
+
         public SerialThread()
         {
             serialPort.BaudRate = 115200;
@@ -125,7 +130,9 @@ namespace VentilatorDaemon
                     bytesToSend[bytes.Length + 3] = bytesToSend.CalculateCrc(bytes.Length + 3);
                     bytesToSend[bytes.Length + 4] = 10; // \n
 
-                    Console.WriteLine(ASCIIEncoding.ASCII.GetString(bytesToSend));
+                    Console.WriteLine("Send message {0} ", ASCIIEncoding.ASCII.GetString(bytesToSend));
+
+                    waitingForAck.TryAdd(msgId, Tuple.Create(bytes, DateTime.UtcNow));
                     // send message
                     serialPort.Write(bytesToSend, 0, bytesToSend.Length);
 
@@ -208,8 +215,15 @@ namespace VentilatorDaemon
             }
 
             if (message.StartsWith(ack))
-            {
-
+            { 
+                if (waitingForAck.ContainsKey(message[4]))
+                {
+                    try
+                    {
+                        waitingForAck.TryRemove(message[4], out _);
+                    }
+                    catch (Exception) { }
+                }
             }
             else if (message.StartsWith(alarm))
             {
@@ -311,7 +325,50 @@ namespace VentilatorDaemon
                     {
                         if (!serialPort.IsOpen)
                         {
+                            ackTokenSource.Cancel();
+                            waitingForAck.Clear();
+                            alarmReceived = false;
                             serialPort.Open();
+
+                            ackTokenSource = new CancellationTokenSource();
+                            var token = ackTokenSource.Token;
+
+                            // thread that checks for messages to resend
+                            _ = Task.Run(async () =>
+                            {
+                                while (!token.IsCancellationRequested)
+                                {
+                                    try
+                                    {
+                                        var now = DateTime.UtcNow;
+                                        List<byte> toRemove = new List<byte>();
+                                        foreach (var kvp in waitingForAck)
+                                        {
+                                            if ((now - kvp.Value.Item2).TotalMilliseconds > 999)
+                                            {
+                                                // message is too old and not acked, resend
+                                                toRemove.Add(kvp.Key);
+                                            }
+                                        }
+
+                                        foreach (var msgId in toRemove)
+                                        {
+                                            // in extreme circumstances it might have been deleted by now
+                                            if (waitingForAck.ContainsKey(msgId))
+                                            {
+                                                Tuple<byte[], DateTime> tuple;
+                                                if (waitingForAck.TryRemove(msgId, out tuple))
+                                                {
+                                                    WriteData(tuple.Item1);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    catch (Exception) { }
+
+                                    await Task.Delay(1000);
+                                }
+                            });
                         }
 
                         try
@@ -360,7 +417,6 @@ namespace VentilatorDaemon
                     {
                         // todo log error
                         Console.WriteLine(e.Message);
-                        alarmReceived = false;
                     }
                 }
 

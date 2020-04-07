@@ -26,7 +26,7 @@ namespace VentilatorDaemon
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-
+                    await Task.Delay(500);
                 }
             });
         }
