@@ -8,12 +8,14 @@ namespace VentilatorDaemon
     {
         static async Task Main(string[] args)
         {
+            Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("en-US");
+            Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo("en-US");
             Console.WriteLine("Starting daemon");
             CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
             var cancellationToken = cancellationTokenSource.Token;
 
-            WebSocketThread webSocketThread = new WebSocketThread("ws://localhost:3001");
             SerialThread serialThread = new SerialThread();
+            WebSocketThread webSocketThread = new WebSocketThread("ws://localhost:3001", serialThread);
 
             serialThread.SetPortName();
 

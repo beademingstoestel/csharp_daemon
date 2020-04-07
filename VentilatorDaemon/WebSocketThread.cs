@@ -11,6 +11,7 @@ namespace VentilatorDaemon
     public class WebSocketThread
     {
         private string uri;
+        private readonly SerialThread serialThread;
         private WebSocketWrapper webSocketWrapper;
 
         private bool connected = false;
@@ -38,9 +39,10 @@ namespace VentilatorDaemon
 
         private readonly string settingsPath = "/api/settings";
 
-        public WebSocketThread(string uri)
+        public WebSocketThread(string uri, SerialThread serialThread)
         {
             this.uri = uri;
+            this.serialThread = serialThread;
         }
 
         private async Task<WebSocketWrapper> ConnectWebSocket()
@@ -104,7 +106,12 @@ namespace VentilatorDaemon
                                 if (settingsToSendThrough.Contains(name))
                                 {
                                     var propertyValue = property.Value.ToObject<float>();
-                                    Console.WriteLine($"{name} {propertyValue}");
+
+                                    _ = Task.Run(() =>
+                                     {
+                                         var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", name, propertyValue));
+                                         serialThread.WriteData(bytes);
+                                     });
                                 }
                             }
                         }
