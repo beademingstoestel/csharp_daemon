@@ -60,7 +60,7 @@ namespace VentilatorDaemon
         private byte msgId = 0;
         private bool alarmReceived = false;
 
-        private int alarmValue = 0;
+        private uint alarmValue = 0;
 
         private CancellationTokenSource ackTokenSource = new CancellationTokenSource();
 
@@ -114,7 +114,7 @@ namespace VentilatorDaemon
             database = client.GetDatabase("beademing");
         }
 
-        public int AlarmValue
+        public uint AlarmValue
         {
             get => alarmValue;
             set
@@ -180,11 +180,11 @@ namespace VentilatorDaemon
             this.alarmValue = 0;
         }
 
-        public async Task SendAlarmToServer(int value)
+        public async Task SendAlarmToServer(uint value)
         {
             try
             {
-                Dictionary<string, float> dict = new Dictionary<string, float>();
+                Dictionary<string, uint> dict = new Dictionary<string, uint>();
                 dict.Add("value", value);
 
                 await flurlClient.Request("/api/alarms")
@@ -267,6 +267,15 @@ namespace VentilatorDaemon
                 var messageId = message[message.Length - 3];
                 CreateAndSendAck(messageId);
 
+                var alarmString = ASCIIEncoding.ASCII.GetString(message);
+                var tokens = alarmString.Split('=', StringSplitOptions.RemoveEmptyEntries);
+
+
+                uint alarmValue = 0;
+                if (uint.TryParse(tokens[1], out alarmValue))
+                {
+                    AlarmValue = alarmValue << 16;
+                }
 
                 if (!alarmReceived)
                 {
@@ -276,8 +285,10 @@ namespace VentilatorDaemon
                     {
                         while (alarmReceived)
                         {
+                            uint alarmValueToSend = alarmValue & 0x0000FFFF;
+
                             // send alarm ping
-                            var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("ALARM={0}", alarmValue));
+                            var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("ALARM={0}", alarmValueToSend));
                             WriteData(bytes);
 
                             await Task.Delay(500);

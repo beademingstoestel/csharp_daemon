@@ -16,11 +16,11 @@ namespace VentilatorDaemon
         private readonly SerialThread serialThread;
         private readonly WebSocketThread webSocketThread;
 
-        private readonly int BPM_TOO_LOW = 1;
-        private readonly int PEEP_NOT_OK = 16;
-        private readonly int PRESSURE_NOT_OK = 32;
-        private readonly int VOLUME_NOT_OK = 64;
-        private readonly int RESIDUAL_VOLUME_NOT_OK = 128;
+        private readonly uint BPM_TOO_LOW = 1;
+        private readonly uint PEEP_NOT_OK = 16;
+        private readonly uint PRESSURE_NOT_OK = 32;
+        private readonly uint VOLUME_NOT_OK = 64;
+        private readonly uint RESIDUAL_VOLUME_NOT_OK = 128;
 
         public ProcessingThread(SerialThread serialThread, WebSocketThread webSocketThread)
         {
@@ -52,7 +52,7 @@ namespace VentilatorDaemon
                     {
                         var settings = webSocketThread.Settings;
 
-                        var alarmBits = 0;
+                        uint alarmBits = 0;
 
                         var pressureValues = GetDocuments("pressure_values", 500);
                         var volumeValues = GetDocuments("volume_values", 500);
@@ -122,7 +122,7 @@ namespace VentilatorDaemon
 
                             if (settings.ContainsKey("RR"))
                             {
-                                if (Math.Abs(bpm - settings["RR"]) < 0.75)
+                                if (Math.Abs(bpm - settings["RR"]) < settings["RR"] * 0.1)
                                 {
                                     Console.WriteLine("No alarm bpm");
                                 }
@@ -238,11 +238,15 @@ namespace VentilatorDaemon
                                     }
                                 }
                             }
-                        }
 
+                            // only for debug purposes, send the moments to the frontend
+                            //await serialThread.SendSettingToServer("breathingCycleStart", startBreathingCycle.Value.);
+                        }
 
                         Console.WriteLine("Alarmbits: {0}", alarmBits);
                         serialThread.AlarmValue = alarmBits;
+
+
                     }
                     catch (Exception e)
                     {
