@@ -110,23 +110,31 @@ namespace VentilatorDaemon
                             if (property != null)
                             {
                                 var name = property.Name;
+                                var propertyValue = property.Value.ToObject<float>();
+                                this.settings[name] = propertyValue;
+
+                                if (name == "RA")
+                                {
+                                    serialThread.ResetAlarm();
+                                }
+                                else if (name == "MT")
+                                {
+                                    serialThread.AlarmMuted = propertyValue > 0;
+                                }
+                                else if (name == "ACTIVE" && propertyValue >= 0.9f && propertyValue < 1.1f) // see if float value is close to 1
+                                {
+                                    // ACTIVE changed to 1, play short beep
+                                    serialThread.PlayBeep();
+                                }
 
                                 if (settingsToSendThrough.Contains(name))
                                 {
-                                    var propertyValue = property.Value.ToObject<float>();
-
-                                    this.settings[name] = propertyValue;
-
                                     _ = Task.Run(() =>
                                      {
                                          Console.WriteLine("Change setting {0}={1}", name, propertyValue);
-                                         var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", name, propertyValue));
+                                         var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", name, propertyValue.ToString("0.00")));
                                          serialThread.WriteData(bytes);
                                      });
-                                } 
-                                else if (name == "RA")
-                                {
-                                    serialThread.ResetAlarm();
                                 }
                             }
                         }

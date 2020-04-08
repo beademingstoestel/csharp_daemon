@@ -61,6 +61,7 @@ namespace VentilatorDaemon
         private bool alarmReceived = false;
 
         private uint alarmValue = 0;
+        private bool alarmMuted = false;
 
         private CancellationTokenSource ackTokenSource = new CancellationTokenSource();
 
@@ -180,6 +181,20 @@ namespace VentilatorDaemon
             this.alarmValue = 0;
         }
 
+        public bool AlarmMuted
+        {
+            get => alarmMuted;
+            set
+            {
+                alarmMuted = true;
+            }
+        }
+
+        public void PlayBeep()
+        {
+            Console.Beep(5000, 2000);
+        }
+
         public async Task SendAlarmToServer(uint value)
         {
             try
@@ -252,7 +267,7 @@ namespace VentilatorDaemon
             }
 
             if (message.StartsWith(ack))
-            { 
+            {
                 if (waitingForAck.ContainsKey(message[4]))
                 {
                     try
@@ -270,10 +285,10 @@ namespace VentilatorDaemon
                 var alarmString = ASCIIEncoding.ASCII.GetString(message);
                 var tokens = alarmString.Split('=', StringSplitOptions.RemoveEmptyEntries);
 
-
                 uint alarmValue = 0;
                 if (uint.TryParse(tokens[1], out alarmValue))
                 {
+                    Console.WriteLine("Arduino sends alarmvalue: {0}", alarmValue);
                     AlarmValue = alarmValue << 16;
                 }
 
@@ -314,10 +329,9 @@ namespace VentilatorDaemon
 
                         var floatValue = 0.0f;
 
-                        Console.WriteLine("Received setting {0} with value {1}", setting.Item1, floatValue);
-
                         if (float.TryParse(tokens[1], out floatValue))
                         {
+                            Console.WriteLine("Received setting {0} with value {1}", setting.Item1, floatValue);
                             // send to server
                             _ = Task.Run(async () =>
                              {
@@ -344,6 +358,7 @@ namespace VentilatorDaemon
 
                             if (float.TryParse(tokens[1], out floatValue))
                             {
+                                floatValue = floatValue / 100.0f;
                                 // send to mongo
                                 _ = Task.Run(async () =>
                                 {
@@ -358,9 +373,27 @@ namespace VentilatorDaemon
             }
         }
 
+        private bool ShouldPlayAlarm
+        {
+            get => alarmValue > 0 && !alarmMuted;
+        }
 
+        private Task AlarmTask(CancellationToken cancellationToken)
+        {
+            return Task.Run(async () =>
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    if (ShouldPlayAlarm)
+                    {
+                        Console.Beep(5000, 2000);
+                    }
+                    await Task.Delay(400);
+                }
+            });
+        }
 
-        public Task Start(CancellationToken cancellationToken)
+        private Task SerialTask(CancellationToken cancellationToken)
         {
             byte[] buffer = new byte[2048];
             int bufferOffset = 0;
@@ -465,6 +498,7 @@ namespace VentilatorDaemon
                     {
                         // todo log error
                         Console.WriteLine(e.Message);
+                        await Task.Delay(1000);
                     }
                 }
 
@@ -473,6 +507,14 @@ namespace VentilatorDaemon
                     serialPort.Close();
                 }
             });
+        }
+
+        public Task Start(CancellationToken cancellationToken)
+        {
+            return Task.WhenAll(
+                    AlarmTask(cancellationToken),
+                    SerialTask(cancellationToken)
+            );
         }
 
         public void SetPortName()
