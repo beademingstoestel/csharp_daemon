@@ -8,8 +8,11 @@
 
   <ItemGroup>
     <Compile Remove="publish\**" />
+    <Compile Remove="publish_linux\**" />
     <EmbeddedResource Remove="publish\**" />
+    <EmbeddedResource Remove="publish_linux\**" />
     <None Remove="publish\**" />
+    <None Remove="publish_linux\**" />
   </ItemGroup>
 
   <ItemGroup>
