@@ -66,6 +66,7 @@ namespace VentilatorDaemon
                         var targetPressureValues = GetDocuments("targetpressure_values", 500);
                         var pressureValues = GetDocuments("pressure_values", 500);
                         var volumeValues = GetDocuments("volume_values", 500);
+                        var triggerValues = GetDocuments("trigger_values", 500);
 
                         if (pressureValues.Count == 0 || volumeValues.Count == 0 || targetPressureValues.Count == 0)
                         {
@@ -83,6 +84,11 @@ namespace VentilatorDaemon
                         }
 
                         if (pressureValues.Last().LoggedAt < maxDateTime)
+                        {
+                            maxDateTime = pressureValues.First().LoggedAt;
+                        }
+
+                        if (triggerValues.Last().LoggedAt < maxDateTime)
                         {
                             maxDateTime = pressureValues.First().LoggedAt;
                         }
@@ -169,64 +175,90 @@ namespace VentilatorDaemon
                                 alarmBits |= RESIDUAL_VOLUME_NOT_OK;
                             }
 
-                            var peakPressure = pressureValues
-                               .Where(v => v.LoggedAt >= startBreathingCycle && v.LoggedAt <= endBreathingCycle)
-                               .Max(v => v.Value);
-
                             var peakPressureMoment = pressureValues
-                               .Where(v => v.LoggedAt >= startBreathingCycle && v.LoggedAt <= endBreathingCycle && v.Value == peakPressure)
-                               .FirstOrDefault();
+                               .Where(v => v.LoggedAt >= startBreathingCycle && v.LoggedAt <= endBreathingCycle.Value)
+                               .Aggregate((i1, i2) => i1.Value > i2.Value ? i1 : i2);
 
-                            var plateauPressure = pressureValues
+                            var plateauMinimumPressure = pressureValues
                                .Where(v => v.LoggedAt >= peakPressureMoment.LoggedAt && v.LoggedAt <= exhalemoment)
-                               .Min(v => v.Value); // we don't know how to call this yet
+                               .Min(v => v.Value);
 
                             if (settings.ContainsKey("PK") && settings.ContainsKey("ADPK"))
                             {
-                                if (!(Math.Abs(peakPressure - settings["PK"]) < settings["ADPK"]
-                                    && Math.Abs(plateauPressure - settings["PK"]) < settings["ADPK"]))
+                                if (!(Math.Abs(peakPressureMoment.Value - settings["PK"]) < settings["ADPK"]
+                                    && Math.Abs(plateauMinimumPressure - settings["PK"]) < settings["ADPK"]))
                                 {
                                     alarmBits |= PRESSURE_NOT_OK;
                                 }
                             }
 
-                            // pressure value 0.25 seconds before end
-                            var firstPeepValue = pressureValues
-                               .Where(v => v.LoggedAt >= endBreathingCycle.Value.AddMilliseconds(-500))
-                               .FirstOrDefault();
-
-                            var secondPeepValue = pressureValues
-                               .Where(v => v.LoggedAt >= endBreathingCycle.Value.AddMilliseconds(-350))
-                               .FirstOrDefault();
-
-                            var thirdPeepValue = pressureValues
-                               .Where(v => v.LoggedAt >= endBreathingCycle.Value.AddMilliseconds(-50))
-                               .FirstOrDefault();
-
-                            if (firstPeepValue != null && secondPeepValue != null && thirdPeepValue != null)
+                            //did we have a trigger within this cycle?
+                            var triggerMoment = pressureValues
+                                .FirstOrDefault(p => p.LoggedAt >= exhalemoment && p.LoggedAt <= endBreathingCycle.Value);
+                            var endPeep = endBreathingCycle.Value;
+                            if (triggerMoment != null)
                             {
-                                var gradientPeep1 = (secondPeepValue.Value - firstPeepValue.Value) / ((secondPeepValue.LoggedAt - firstPeepValue.LoggedAt).TotalMilliseconds);
-                                var gradientPeep2 = (thirdPeepValue.Value - secondPeepValue.Value) / ((thirdPeepValue.LoggedAt - secondPeepValue.LoggedAt).TotalMilliseconds);
+                                endPeep = triggerMoment.LoggedAt;
+                            }
 
-                                if (settings.ContainsKey("PP") && settings.ContainsKey("ADPP"))
+                            if (settings.ContainsKey("PP") && settings.ContainsKey("ADPP"))
+                            {
+                                bool firstPeepPressureIteration = true;
+                                bool belowPeep = true;
+                                ValueEntry previousPoint = null;
+                                List<float> slopes = new List<float>();
+
+                                foreach (var pressureValue in pressureValues
+                                    .Where(v => v.LoggedAt >= exhalemoment && v.LoggedAt <= endPeep)
+                                    .OrderByDescending(v => v.LoggedAt))
                                 {
-                                    if (Math.Abs(thirdPeepValue.Value - settings["PP"]) > settings["ADPP"])
+                                    // if last value is above PEEP, assume everything is ok
+                                    if (firstPeepPressureIteration)
                                     {
-                                        if (Math.Abs(firstPeepValue.Value - settings["PP"]) > settings["ADPP"])
+                                        if (pressureValue.Value < settings["PP"] - settings["ADPP"])
                                         {
-                                            alarmBits |= PEEP_NOT_OK;
+                                            break;
+                                        }
+
+                                        firstPeepPressureIteration = false;
+                                    }
+
+                                    // we are still here, so last value was not in peep threshold
+                                    // go back until we are above PEEP again and start calculating slope
+                                    // when the average slope is steadily declining, we have a leak
+                                    if (pressureValue.Value >= settings["PP"] - settings["ADPP"])
+                                    {
+                                        if (belowPeep)
+                                        {
+                                            // our first point above PEEP, start slope calculation
+                                            belowPeep = false;
+                                            previousPoint = pressureValue;
                                         }
                                         else
                                         {
-                                            if (Math.Abs(gradientPeep1) <= Math.Abs(gradientPeep2))
-                                            {
-                                                alarmBits |= PEEP_NOT_OK;
-                                            }
+                                            // calculate slope with previous point
+                                            var slope = (pressureValue.Value - previousPoint.Value) / ((float)(pressureValue.LoggedAt - previousPoint.LoggedAt).TotalSeconds);
+
+                                            slopes.Add(slope);
                                         }
                                     }
                                 }
 
-                                Console.WriteLine("had pp check");
+                                if (belowPeep)
+                                {
+                                    // all points are below peep, clearly we should raise an alarm
+                                    alarmBits |= PEEP_NOT_OK;
+                                }
+                                else
+                                {
+                                    // how steep is our calculated slope?
+                                    var averageSlope = slopes.Average();
+
+                                    if (averageSlope < -0.1f)
+                                    {
+                                        alarmBits |= PEEP_NOT_OK;
+                                    }
+                                }
                             }
 
                             // only for debug purposes, send the moments to the frontend
@@ -234,6 +266,7 @@ namespace VentilatorDaemon
                         }
                         else if (startBreathingCycle.HasValue && startBreathingCycle.Value < DateTime.UtcNow.AddSeconds(-10))
                         {
+                            // our last complete cycle is already more than 10 seconds ago
                             alarmBits |= BPM_TOO_LOW;
                         }
 

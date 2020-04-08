@@ -122,7 +122,7 @@ namespace VentilatorDaemon
             {
                 alarmValue = alarmValue | value;
 
-                SendAlarmToServer(AlarmValue);
+                _= SendAlarmToServer(AlarmValue);
             }
         }
 
@@ -192,7 +192,7 @@ namespace VentilatorDaemon
 
         public void PlayBeep()
         {
-            Console.Beep(5000, 2000);
+            Console.Beep(3000, 2000);
         }
 
         public async Task SendAlarmToServer(uint value)
@@ -386,7 +386,7 @@ namespace VentilatorDaemon
                 {
                     if (ShouldPlayAlarm)
                     {
-                        Console.Beep(5000, 2000);
+                        Console.Beep(3000, 2000);
                     }
                     await Task.Delay(400);
                 }
@@ -409,6 +409,7 @@ namespace VentilatorDaemon
                             ackTokenSource.Cancel();
                             waitingForAck.Clear();
                             alarmReceived = false;
+                            serialPort.DtrEnable = false;
                             serialPort.Open();
 
                             ackTokenSource = new CancellationTokenSource();
