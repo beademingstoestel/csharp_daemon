@@ -15,6 +15,8 @@ namespace VentilatorDaemon
             var cancellationToken = cancellationTokenSource.Token;
 
             SerialThread serialThread = new SerialThread();
+            //await serialThread.SendSettingToServer("DAEMON_VERSION", 1.0f);
+
             WebSocketThread webSocketThread = new WebSocketThread("ws://localhost:3001", serialThread);
             ProcessingThread processingThread = new ProcessingThread(serialThread, webSocketThread);
 

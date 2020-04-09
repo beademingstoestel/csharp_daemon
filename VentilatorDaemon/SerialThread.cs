@@ -409,7 +409,7 @@ namespace VentilatorDaemon
                             ackTokenSource.Cancel();
                             waitingForAck.Clear();
                             alarmReceived = false;
-                            serialPort.DtrEnable = false;
+                            // serialPort.DtrEnable = false;
                             serialPort.Open();
 
                             ackTokenSource = new CancellationTokenSource();
