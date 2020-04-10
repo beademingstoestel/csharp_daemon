@@ -171,7 +171,7 @@ namespace VentilatorDaemon
                             }
 
                             var residualVolume = volumeValues
-                                .Where(v => v.LoggedAt >= startBreathingCycle && v.LoggedAt <= endBreathingCycle.Value)
+                                .Where(v => v.LoggedAt >= exhalemoment && v.LoggedAt <= endBreathingCycle.Value.AddMilliseconds(-80))
                                 .Min(v => v.Value);
 
                             if (Math.Abs(residualVolume) > 50)
