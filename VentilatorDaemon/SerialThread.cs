@@ -315,11 +315,11 @@ namespace VentilatorDaemon
                 var alarmString = ASCIIEncoding.ASCII.GetString(message);
                 var tokens = alarmString.Split('=', StringSplitOptions.RemoveEmptyEntries);
 
-                uint alarmValue = 0;
-                if (uint.TryParse(tokens[1], out alarmValue))
+                uint newAlarmValue = 0;
+                if (uint.TryParse(tokens[1], out newAlarmValue))
                 {
-                    //Console.WriteLine("Arduino sends alarmvalue: {0}", alarmValue);
-                    AlarmValue = alarmValue << 16;
+                    Console.WriteLine("Arduino sends alarmvalue: {0}", newAlarmValue);
+                    AlarmValue = newAlarmValue << 16;
                 }
 
                 if (!alarmReceived)
@@ -330,10 +330,11 @@ namespace VentilatorDaemon
                     {
                         while (alarmReceived)
                         {
-                            uint alarmValueToSend = alarmValue;
+                            int alarmValueToSend = alarmValue > 0 ? 1 : 0;
 
                             // send alarm ping
                             var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("ALARM={0}", alarmValueToSend));
+                            Console.WriteLine("Send alarm {0} to arduino {1}", alarmValue, ASCIIEncoding.ASCII.GetString(bytes));
                             WriteData(bytes);
 
                             await Task.Delay(500);
@@ -431,11 +432,11 @@ namespace VentilatorDaemon
                         if (!serialPort.IsOpen)
                         {
                             ackTokenSource.Cancel();
+                            alarmReceived = false;
 
                             Task.WaitAll(ackTask, alarmSendTask);
 
                             waitingForAck.Clear();
-                            alarmReceived = false;
                             serialPort.DtrEnable = dtrEnable;
                             // next reconnection should not reset
                             dtrEnable = false;

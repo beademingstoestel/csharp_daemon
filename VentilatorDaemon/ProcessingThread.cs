@@ -185,8 +185,6 @@ namespace VentilatorDaemon
                             }
                         }
 
-                        Console.WriteLine("Total number of found cycles: " + breathingCycles.Count);
-
                         // do we have a full cycle
                         if (startBreathingCycle.HasValue && endBreathingCycle.HasValue)
                         {
@@ -344,8 +342,6 @@ namespace VentilatorDaemon
                             alarmBits |= BPM_TOO_LOW;
                         }
 
-
-                        Console.WriteLine("Alarmbits: {0}", alarmBits);
                         serialThread.AlarmValue = alarmBits;
 
                         
@@ -373,7 +369,7 @@ namespace VentilatorDaemon
                     }
 
                     var timeSpent = (DateTime.Now - start).TotalMilliseconds;
-                    Console.WriteLine("Time taken processing: {0}", timeSpent);
+                    // Console.WriteLine("Time taken processing: {0}", timeSpent);
                     await Task.Delay(Math.Max(1, 500 - (int)timeSpent));
                 }
             });
