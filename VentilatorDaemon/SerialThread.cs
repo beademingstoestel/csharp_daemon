@@ -66,6 +66,8 @@ namespace VentilatorDaemon
         private SemaphoreSlim saveMongoLock = new SemaphoreSlim(1, 1);
         private byte msgId = 0;
         private bool alarmReceived = false;
+        private Task alarmSendTask = Task.CompletedTask;
+        private Task ackTask = Task.CompletedTask;
         private DateTime lastMessageReceived;
 
         private readonly uint ARDUINO_CONNECTION_NOT_OK = 256;
@@ -115,7 +117,6 @@ namespace VentilatorDaemon
 
         private ConcurrentDictionary<byte, SentSerialMessage> waitingForAck = new ConcurrentDictionary<byte, SentSerialMessage>();
         private bool dtrEnable = false;
-        private Task ackTask = null;
 
         public SerialThread()
         {
@@ -163,8 +164,6 @@ namespace VentilatorDaemon
         {
             lock (lockObj)
             {
-
-                Console.WriteLine(ASCIIEncoding.ASCII.GetString(bytes));
                 try
                 {
                     //add space for id byte and CRC
@@ -319,7 +318,7 @@ namespace VentilatorDaemon
                 uint alarmValue = 0;
                 if (uint.TryParse(tokens[1], out alarmValue))
                 {
-                    Console.WriteLine("Arduino sends alarmvalue: {0}", alarmValue);
+                    //Console.WriteLine("Arduino sends alarmvalue: {0}", alarmValue);
                     AlarmValue = alarmValue << 16;
                 }
 
@@ -327,11 +326,11 @@ namespace VentilatorDaemon
                 {
                     alarmReceived = true;
 
-                    Task.Run(async () =>
+                    this.alarmSendTask = Task.Run(async () =>
                     {
                         while (alarmReceived)
                         {
-                            uint alarmValueToSend = alarmValue & 0x0000FFFF;
+                            uint alarmValueToSend = alarmValue;
 
                             // send alarm ping
                             var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("ALARM={0}", alarmValueToSend));
@@ -362,7 +361,6 @@ namespace VentilatorDaemon
 
                         if (float.TryParse(tokens[1], out floatValue))
                         {
-                            Console.WriteLine("Received setting {0} with value {1}", setting.Item1, floatValue);
                             // send to server
                             _ = Task.Run(async () =>
                              {
@@ -434,10 +432,7 @@ namespace VentilatorDaemon
                         {
                             ackTokenSource.Cancel();
 
-                            if (ackTask != null)
-                            {
-                                Task.WaitAll(ackTask);
-                            }
+                            Task.WaitAll(ackTask, alarmSendTask);
 
                             waitingForAck.Clear();
                             alarmReceived = false;

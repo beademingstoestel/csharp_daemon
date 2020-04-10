@@ -1,4 +1,7 @@
-﻿using System;
+﻿using Flurl.Http;
+using Flurl.Http.Configuration;
+using Newtonsoft.Json;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -8,6 +11,16 @@ namespace VentilatorDaemon
     {
         static async Task Main(string[] args)
         {
+
+            FlurlHttp.Configure(settings => {
+                var jsonSettings = new JsonSerializerSettings
+                {
+                    NullValueHandling = NullValueHandling.Ignore,
+                    ObjectCreationHandling = ObjectCreationHandling.Replace
+                };
+                settings.JsonSerializer = new NewtonsoftJsonSerializer(jsonSettings);
+            });
+
             Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("en-US");
             Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo("en-US");
             Console.WriteLine("Starting daemon");

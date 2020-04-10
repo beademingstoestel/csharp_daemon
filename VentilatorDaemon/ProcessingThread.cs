@@ -1,14 +1,39 @@
-﻿using MongoDB.Driver;
+﻿using Flurl.Http;
+using MongoDB.Driver;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace VentilatorDaemon
 {
+    public class CalculatedValues
+    {
+        [JsonProperty("IE")]
+        public double IE { get; set; }
+        [JsonProperty("tidalVolume")]
+        public double TidalVolume { get; set; }
+        [JsonProperty("volumePerMinute")]
+        public double VolumePerMinute { get; set; }
+        [JsonProperty("respatoryRate")]
+        public double RespatoryRate { get; set; }
+        [JsonProperty("pressurePlateau")]
+        public double PressurePlateau { get; set; }
+
+        public void ResetValues()
+        {
+            IE = 0.0;
+            VolumePerMinute = 0.0;
+            RespatoryRate = 0.0;
+            PressurePlateau = 0.0;
+        }
+    }
+
     public class ProcessingThread
     {
         private readonly MongoClient client;
@@ -21,6 +46,8 @@ namespace VentilatorDaemon
         private readonly uint PRESSURE_NOT_OK = 32;
         private readonly uint VOLUME_NOT_OK = 64;
         private readonly uint RESIDUAL_VOLUME_NOT_OK = 128;
+
+        FlurlClient flurlClient = new FlurlClient("http://localhost:3001");
 
         public ProcessingThread(SerialThread serialThread, WebSocketThread webSocketThread)
         {
@@ -42,15 +69,30 @@ namespace VentilatorDaemon
 
         }
 
+        private List<ValueEntry> GetDocuments(string collection, DateTime since)
+        {
+            var builder = Builders<ValueEntry>.Filter;
+
+            return database.GetCollection<ValueEntry>(collection)
+                .Find<ValueEntry>(builder.Gt(e => e.LoggedAt, since))
+                .SortByDescending(entry => entry.LoggedAt)
+                .ToList();
+
+        }
+
         public Task Start(CancellationToken cancellationToken)
         {
+            CalculatedValues calculatedValues = new CalculatedValues();
+
             return Task.Run(async () =>
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
+                    var start = DateTime.Now;
                     try
                     {
                         var settings = webSocketThread.Settings;
+                        calculatedValues.ResetValues();
 
                         // are we active?
                         if (!(settings.ContainsKey("ACTIVE") && settings["ACTIVE"] > 1.0f))
@@ -63,9 +105,9 @@ namespace VentilatorDaemon
 
                         uint alarmBits = 0;
 
-                        var targetPressureValues = GetDocuments("targetpressure_values", 500);
+                        var targetPressureValues = GetDocuments("targetpressure_values", DateTime.UtcNow.AddSeconds(-70));
                         var pressureValues = GetDocuments("pressure_values", 500);
-                        var volumeValues = GetDocuments("volume_values", 500);
+                        var volumeValues = GetDocuments("volume_values", DateTime.UtcNow.AddSeconds(-70));
                         var triggerValues = GetDocuments("trigger_values", 500);
 
                         if (pressureValues.Count == 0 || volumeValues.Count == 0 || targetPressureValues.Count == 0)
@@ -78,17 +120,17 @@ namespace VentilatorDaemon
                         // find the lowest datetime value that we all have
                         var maxDateTime = targetPressureValues.First().LoggedAt;
 
-                        if (volumeValues.Last().LoggedAt < maxDateTime)
+                        if (volumeValues.First().LoggedAt < maxDateTime)
                         {
                             maxDateTime = volumeValues.First().LoggedAt;
                         }
 
-                        if (pressureValues.Last().LoggedAt < maxDateTime)
+                        if (pressureValues.First().LoggedAt < maxDateTime)
                         {
                             maxDateTime = pressureValues.First().LoggedAt;
                         }
 
-                        if (triggerValues.Last().LoggedAt < maxDateTime)
+                        if (triggerValues.First().LoggedAt < maxDateTime)
                         {
                             maxDateTime = pressureValues.First().LoggedAt;
                         }
@@ -104,6 +146,8 @@ namespace VentilatorDaemon
 
                         DateTime? startBreathingCycle = null;
                         DateTime? endBreathingCycle = null;
+
+                        List<Tuple<DateTime, DateTime>> breathingCycles = new List<Tuple<DateTime, DateTime>>();
 
                         foreach (var targetPressure in targetPressureValues)
                         {
@@ -124,6 +168,11 @@ namespace VentilatorDaemon
                                             startBreathingCycle = endBreathingCycle;
                                             endBreathingCycle = targetPressure.LoggedAt;
                                             goingUp = true;
+
+                                            if (startBreathingCycle.HasValue && endBreathingCycle.HasValue)
+                                            {
+                                                breathingCycles.Add(Tuple.Create(startBreathingCycle.Value, endBreathingCycle.Value));
+                                            }
                                         }
                                     }
                                     else if (targetPressure.Value < lastValue)
@@ -135,6 +184,8 @@ namespace VentilatorDaemon
                                 }
                             }
                         }
+
+                        Console.WriteLine("Total number of found cycles: " + breathingCycles.Count);
 
                         // do we have a full cycle
                         if (startBreathingCycle.HasValue && endBreathingCycle.HasValue)
@@ -156,7 +207,12 @@ namespace VentilatorDaemon
                             var breathingCycleDuration = (endBreathingCycle.Value - startBreathingCycle.Value).TotalSeconds;
                             var bpm = 60.0 / breathingCycleDuration;
 
+                            calculatedValues.RespatoryRate = bpm;
+
                             var inhaleTime = (exhalemoment - startBreathingCycle.Value).TotalSeconds;
+                            var exhaleTime = (endBreathingCycle.Value - exhalemoment).TotalSeconds;
+
+                            calculatedValues.IE = inhaleTime / breathingCycleDuration;
 
                             var tidalVolume = volumeValues
                                 .Where(v => v.LoggedAt >= startBreathingCycle && v.LoggedAt <= endBreathingCycle)
@@ -169,6 +225,8 @@ namespace VentilatorDaemon
                                     alarmBits |= VOLUME_NOT_OK;
                                 }
                             }
+
+                            calculatedValues.TidalVolume = tidalVolume;
 
                             var residualVolume = volumeValues
                                 .Where(v => v.LoggedAt >= exhalemoment && v.LoggedAt <= endBreathingCycle.Value.AddMilliseconds(-80))
@@ -195,6 +253,8 @@ namespace VentilatorDaemon
                                     alarmBits |= PRESSURE_NOT_OK;
                                 }
                             }
+
+                            calculatedValues.PressurePlateau = plateauMinimumPressure;
 
                             //did we have a trigger within this cycle?
                             var triggerMoment = triggerValues
@@ -288,14 +348,33 @@ namespace VentilatorDaemon
                         Console.WriteLine("Alarmbits: {0}", alarmBits);
                         serialThread.AlarmValue = alarmBits;
 
+                        
+                        if (breathingCycles.Count > 1)
+                        {
+                            foreach (var breathingCycle in breathingCycles)
+                            {
+                                var tidalVolume = volumeValues
+                                    .Where(v => v.LoggedAt >= breathingCycle.Item1 && v.LoggedAt <= breathingCycle.Item2)
+                                    .Max(v => v.Value);
 
+                                calculatedValues.VolumePerMinute += tidalVolume / 1000.0;
+                            }
+
+                            calculatedValues.VolumePerMinute = calculatedValues.VolumePerMinute / (breathingCycles.Last().Item2 - breathingCycles.First().Item1).TotalSeconds * 60.0;
+                        }
+
+
+                        await flurlClient.Request("/api/calculated_values")
+                            .PutJsonAsync(calculatedValues);
                     }
                     catch (Exception e)
                     {
                         Console.WriteLine(e.Message);
                     }
 
-                    await Task.Delay(500);
+                    var timeSpent = (DateTime.Now - start).TotalMilliseconds;
+                    Console.WriteLine("Time taken processing: {0}", timeSpent);
+                    await Task.Delay(Math.Max(1, 500 - (int)timeSpent));
                 }
             });
         }
