@@ -207,6 +207,14 @@ namespace VentilatorDaemon
 
                             calculatedValues.RespatoryRate = bpm;
 
+                            if (settings.ContainsKey("RR"))
+                            {
+                                if (bpm <= settings["RR"] - 1.0)
+                                {
+                                    alarmBits |= BPM_TOO_LOW;
+                                }
+                            }
+
                             var inhaleTime = (exhalemoment - startBreathingCycle.Value).TotalSeconds;
                             var exhaleTime = (endBreathingCycle.Value - exhalemoment).TotalSeconds;
 

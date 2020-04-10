@@ -73,6 +73,7 @@ namespace VentilatorDaemon
         private readonly uint ARDUINO_CONNECTION_NOT_OK = 256;
 
         private uint alarmValue = 0;
+        private bool hasToSendAlarmReset = false;
         private bool alarmMuted = false;
 
         private CancellationTokenSource ackTokenSource = new CancellationTokenSource();
@@ -212,7 +213,7 @@ namespace VentilatorDaemon
 
         public void ResetAlarm()
         {
-            this.alarmValue = 0;
+            hasToSendAlarmReset = true;
         }
 
         public void PlayBeep()
@@ -330,7 +331,27 @@ namespace VentilatorDaemon
                     {
                         while (alarmReceived)
                         {
-                            int alarmValueToSend = alarmValue > 0 ? 1 : 0;
+                            uint alarmValueToSend = 0;
+
+                            if (hasToSendAlarmReset)
+                            {
+                                alarmValueToSend = (alarmValue & 0xFFFF0000) >> 16;
+
+                                if ((alarmValue & 0x0000FFFF) > 0)
+                                {
+                                    alarmValueToSend |= 1;
+                                }
+
+                                alarmValue = 0;
+                                hasToSendAlarmReset = false;
+                            }
+                            else
+                            {
+                                if (alarmValue > 0)
+                                {
+                                    alarmValueToSend = 1;
+                                }
+                            }
 
                             // send alarm ping
                             var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("ALARM={0}", alarmValueToSend));
