@@ -32,7 +32,7 @@ namespace VentilatorDaemon
             "ADVT", // Allowed deviation Tidal Volume
             "ADPP", // Allowed deviation PEEP
             "MODE",  // Machine Mode (Volume Control / Pressure Control)
-            "ACTIVE",  // Machine on / off
+            //"ACTIVE",  // Machine on / off, do not send through automatically, we want to monitor ack
             "PS", // support pressure
             "RP", // ramp time
             "TP", // trigger pressure
@@ -57,7 +57,7 @@ namespace VentilatorDaemon
         {
             return await WebSocketWrapper
                 .Create(uri)
-                .OnConnect(async (wsw) => 
+                .OnConnect(async (wsw) =>
                 {
                     connected = true;
                     // send hello to initiate protocol
@@ -119,12 +119,31 @@ namespace VentilatorDaemon
                                 }
                                 else if (name == "MT")
                                 {
-                                    serialThread.AlarmMuted = propertyValue > 0;
+                                    serialThread.AlarmMuted = propertyValue > 0.0f;
                                 }
                                 else if (name == "ACTIVE" && propertyValue >= 0.9f && propertyValue < 1.1f) // see if float value is close to 1
                                 {
-                                    // ACTIVE changed to 1, play short beep
-                                    serialThread.PlayBeep();
+                                    _ = Task.Run(() =>
+                                    {
+                                        // ACTIVE changed to 1, play short beep
+                                        Console.WriteLine("Change setting {0}={1}", name, propertyValue);
+                                        var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", name, propertyValue.ToString("0.00")));
+
+                                        serialThread.WriteData(bytes, (messageId) =>
+                                        {
+                                            serialThread.PlayBeep();
+                                            return Task.CompletedTask;
+                                        });
+                                    });
+                                }
+                                else if (name == "ACTIVE")
+                                {
+                                    _ = Task.Run(() =>
+                                    {
+                                        Console.WriteLine("Change setting {0}={1}", name, propertyValue);
+                                        var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", name, propertyValue.ToString("0.00")));
+                                        serialThread.WriteData(bytes);
+                                    });
                                 }
 
                                 if (settingsToSendThrough.Contains(name))
@@ -151,13 +170,13 @@ namespace VentilatorDaemon
                 {
                     webSocketWrapper = await ConnectWebSocket();
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     // todo log error
                     Console.WriteLine(e.Message);
                 }
 
-                while(!cancellationToken.IsCancellationRequested)
+                while (!cancellationToken.IsCancellationRequested)
                 {
                     if (!connected)
                     {

@@ -242,7 +242,7 @@ namespace VentilatorDaemon
                                     {
                                         var gradient = (previousPoint.Value - pressureValue.Value) / ((float)(previousPoint.LoggedAt - pressureValue.LoggedAt).TotalSeconds);
 
-                                        if (gradient > -5.0f)
+                                        if (gradient > -1.0f)
                                         {
                                             plateauCounter++;
 

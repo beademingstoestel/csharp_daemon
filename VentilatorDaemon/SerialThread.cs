@@ -24,6 +24,13 @@ namespace VentilatorDaemon
         public DateTime LoggedAt { get; set; }
     }
 
+    public enum ConnectionState
+    {
+        SerialNotConnected = 0,
+        NoCommunication = 1,
+        Connected = 2,
+    }
+
     public static class ByteArrayHelpers
     {
         public static bool StartsWith(this byte[] hayStack, byte[] needle)
@@ -59,6 +66,9 @@ namespace VentilatorDaemon
         private SemaphoreSlim saveMongoLock = new SemaphoreSlim(1, 1);
         private byte msgId = 0;
         private bool alarmReceived = false;
+        private DateTime lastMessageReceived;
+
+        private readonly uint ARDUINO_CONNECTION_NOT_OK = 256;
 
         private uint alarmValue = 0;
         private bool alarmMuted = false;
@@ -103,7 +113,9 @@ namespace VentilatorDaemon
         private readonly MongoClient client;
         private readonly IMongoDatabase database;
 
-        private ConcurrentDictionary<byte, Tuple<byte[], DateTime>> waitingForAck = new ConcurrentDictionary<byte, Tuple<byte[], DateTime>>();
+        private ConcurrentDictionary<byte, SentSerialMessage> waitingForAck = new ConcurrentDictionary<byte, SentSerialMessage>();
+        private bool dtrEnable = false;
+        private Task ackTask = null;
 
         public SerialThread()
         {
@@ -126,10 +138,33 @@ namespace VentilatorDaemon
             }
         }
 
+        public bool AlarmMuted
+        {
+            get => alarmMuted;
+            set
+            {
+                alarmMuted = value;
+            }
+        }
+
+        private bool ShouldPlayAlarm
+        {
+            get => alarmValue > 0 && !alarmMuted;
+        }
+
+        public ConnectionState ConnectionState { get; set; } = ConnectionState.SerialNotConnected;
+
         public void WriteData(byte[] bytes)
+        {
+            WriteData(bytes, null);
+        }
+
+        public void WriteData(byte[] bytes, Func<byte, Task> messageAcknowledged)
         {
             lock (lockObj)
             {
+
+                Console.WriteLine(ASCIIEncoding.ASCII.GetString(bytes));
                 try
                 {
                     //add space for id byte and CRC
@@ -146,7 +181,7 @@ namespace VentilatorDaemon
 
                     //Console.WriteLine("Send message {0} ", ASCIIEncoding.ASCII.GetString(bytesToSend));
 
-                    waitingForAck.TryAdd(msgId, Tuple.Create(bytes, DateTime.UtcNow));
+                    waitingForAck.TryAdd(msgId, new SentSerialMessage(bytes, DateTime.UtcNow, messageAcknowledged));
                     // send message
                     serialPort.Write(bytesToSend, 0, bytesToSend.Length);
 
@@ -179,15 +214,6 @@ namespace VentilatorDaemon
         public void ResetAlarm()
         {
             this.alarmValue = 0;
-        }
-
-        public bool AlarmMuted
-        {
-            get => alarmMuted;
-            set
-            {
-                alarmMuted = true;
-            }
         }
 
         public void PlayBeep()
@@ -258,6 +284,7 @@ namespace VentilatorDaemon
 
         public void HandleMessage(byte[] message, DateTime timeStamp)
         {
+            this.lastMessageReceived = DateTime.Now;
             //calculate crc
             var crc = message.CalculateCrc(message.Length - 1);
 
@@ -272,7 +299,11 @@ namespace VentilatorDaemon
                 {
                     try
                     {
-                        waitingForAck.TryRemove(message[4], out _);
+                        SentSerialMessage removedMessage;
+                        if (waitingForAck.TryRemove(message[4], out removedMessage))
+                        {
+                            _= removedMessage.TriggerMessageAcknowledgedAsync(message[4]);
+                        }
                     }
                     catch (Exception) { }
                 }
@@ -373,12 +404,7 @@ namespace VentilatorDaemon
             }
         }
 
-        private bool ShouldPlayAlarm
-        {
-            get => alarmValue > 0 && !alarmMuted;
-        }
-
-        private Task AlarmTask(CancellationToken cancellationToken)
+        private Task AlarmSoundTask(CancellationToken cancellationToken)
         {
             return Task.Run(async () =>
             {
@@ -393,7 +419,7 @@ namespace VentilatorDaemon
             });
         }
 
-        private Task SerialTask(CancellationToken cancellationToken)
+        private Task SerialCommunicationTask(CancellationToken cancellationToken)
         {
             byte[] buffer = new byte[2048];
             int bufferOffset = 0;
@@ -407,16 +433,27 @@ namespace VentilatorDaemon
                         if (!serialPort.IsOpen)
                         {
                             ackTokenSource.Cancel();
+
+                            if (ackTask != null)
+                            {
+                                Task.WaitAll(ackTask);
+                            }
+
                             waitingForAck.Clear();
                             alarmReceived = false;
-                            // serialPort.DtrEnable = false;
+                            serialPort.DtrEnable = dtrEnable;
+                            // next reconnection should not reset
+                            dtrEnable = false;
+                            
                             serialPort.Open();
+
+                            lastMessageReceived = DateTime.Now;
 
                             ackTokenSource = new CancellationTokenSource();
                             var token = ackTokenSource.Token;
 
-                            // thread that checks for messages to resend
-                            _ = Task.Run(async () =>
+                            // thread that checks for messages to resend and connection problems
+                            this.ackTask = Task.Run(async () =>
                             {
                                 while (!token.IsCancellationRequested)
                                 {
@@ -426,7 +463,7 @@ namespace VentilatorDaemon
                                         List<byte> toRemove = new List<byte>();
                                         foreach (var kvp in waitingForAck)
                                         {
-                                            if ((now - kvp.Value.Item2).TotalMilliseconds > 999)
+                                            if ((now - kvp.Value.LastTriedAt).TotalMilliseconds > 999)
                                             {
                                                 // message is too old and not acked, resend
                                                 toRemove.Add(kvp.Key);
@@ -438,15 +475,27 @@ namespace VentilatorDaemon
                                             // in extreme circumstances it might have been deleted by now
                                             if (waitingForAck.ContainsKey(msgId))
                                             {
-                                                Tuple<byte[], DateTime> tuple;
-                                                if (waitingForAck.TryRemove(msgId, out tuple))
+                                                SentSerialMessage sentSerialMessage;
+                                                if (waitingForAck.TryRemove(msgId, out sentSerialMessage))
                                                 {
-                                                    WriteData(tuple.Item1);
+                                                    WriteData(sentSerialMessage.MessageBytes, sentSerialMessage.MessageAcknowledged);
                                                 }
                                             }
                                         }
                                     }
                                     catch (Exception) { }
+
+                                    if ((DateTime.Now - this.lastMessageReceived).TotalSeconds > 20)
+                                    {
+                                        Console.WriteLine("No communication with the arduino could be established, send reset signal");
+
+                                        dtrEnable = true;
+                                        if (serialPort.IsOpen)
+                                        {
+                                            serialPort.Close();
+                                            break;
+                                        }
+                                    }
 
                                     await Task.Delay(1000);
                                 }
@@ -462,6 +511,7 @@ namespace VentilatorDaemon
                             // get the messages out of the buffer by looking for line endings not preceded by =
                             var lengthMessage = 0;
                             var startMessage = 0;
+                            var utcNow = DateTime.UtcNow;
                             for (int i = 0; i < bufferOffset; i++)
                             {
                                 if (buffer[i] == '\n' && lengthMessage > 1)
@@ -472,13 +522,12 @@ namespace VentilatorDaemon
                                     startMessage = i + 1;
                                     lengthMessage = -1;
 
-                                    var utcNow = DateTime.UtcNow;
                                     _ = Task.Run(() => HandleMessage(message, utcNow));
                                 }
                                 lengthMessage++;
                             }
 
-                            // we found a message, shift the buffer
+                            // we found a message further in the buffer, shift the buffer
                             if (startMessage > 0)
                             {
                                 bufferOffset -= startMessage;
@@ -491,6 +540,8 @@ namespace VentilatorDaemon
                                 {
                                     Array.Fill<byte>(buffer, 0);
                                 }
+
+                                ConnectionState = ConnectionState.Connected;
                             }
                         }
                         catch (TimeoutException) { }
@@ -500,6 +551,9 @@ namespace VentilatorDaemon
                         // todo log error
                         Console.WriteLine(e.Message);
                         await Task.Delay(1000);
+                        ConnectionState = ConnectionState.SerialNotConnected;
+
+                        AlarmValue = ARDUINO_CONNECTION_NOT_OK;
                     }
                 }
 
@@ -513,8 +567,8 @@ namespace VentilatorDaemon
         public Task Start(CancellationToken cancellationToken)
         {
             return Task.WhenAll(
-                    AlarmTask(cancellationToken),
-                    SerialTask(cancellationToken)
+                    AlarmSoundTask(cancellationToken),
+                    SerialCommunicationTask(cancellationToken)
             );
         }
 
