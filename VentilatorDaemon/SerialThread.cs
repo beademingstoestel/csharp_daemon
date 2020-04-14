@@ -431,6 +431,9 @@ namespace VentilatorDaemon
 
                         if (float.TryParse(tokens[1], out floatValue))
                         {
+                            Console.WriteLine(ASCIIEncoding.ASCII.GetString(message));
+                            Console.WriteLine("Received setting from arduino with value {0} {1}", setting.Item1, floatValue);
+
                             // send to server
                             _ = Task.Run(async () =>
                              {
