@@ -102,6 +102,7 @@ namespace VentilatorDaemon
             var lastValue = 0.0f;
             var firstLoop = true;
             var goingUp = false;
+            var previousLoggedAt = DateTime.Now;
 
             foreach (var targetPressure in targetPressureValues)
             {
@@ -110,6 +111,7 @@ namespace VentilatorDaemon
                     if (firstLoop)
                     {
                         lastValue = targetPressure.Value;
+                        previousLoggedAt = targetPressure.LoggedAt;
                         firstLoop = false;
                     }
                     else
@@ -120,7 +122,7 @@ namespace VentilatorDaemon
                             {
                                 // positive edge
                                 startBreathingCycle = endBreathingCycle;
-                                endBreathingCycle = targetPressure.LoggedAt;
+                                endBreathingCycle = previousLoggedAt;
                                 goingUp = true;
 
                                 if (startBreathingCycle.HasValue && endBreathingCycle.HasValue)
@@ -135,6 +137,7 @@ namespace VentilatorDaemon
                         }
 
                         lastValue = targetPressure.Value;
+                        previousLoggedAt = targetPressure.LoggedAt;
                     }
                 }
             }
@@ -168,9 +171,9 @@ namespace VentilatorDaemon
                         uint alarmBits = 0;
 
                         var targetPressureValues = GetDocuments("targetpressure_values", DateTime.UtcNow.AddSeconds(-70));
-                        var pressureValues = GetDocuments("pressure_values", 500);
+                        var pressureValues = GetDocuments("pressure_values", DateTime.UtcNow.AddSeconds(-70));
                         var volumeValues = GetDocuments("volume_values", DateTime.UtcNow.AddSeconds(-70));
-                        var triggerValues = GetDocuments("trigger_values", 500);
+                        var triggerValues = GetDocuments("trigger_values", DateTime.UtcNow.AddSeconds(-70));
 
                         if (pressureValues.Count == 0 || volumeValues.Count == 0 || targetPressureValues.Count == 0)
                         {
@@ -216,7 +219,7 @@ namespace VentilatorDaemon
                             var maxValTargetPressure = GetMaximum(targetPressureValues, startBreathingCycle, endBreathingCycle);
 
                             var targetPressureExhale = targetPressureValues
-                                .Where(v => v.LoggedAt >= startBreathingCycle && v.LoggedAt <= endBreathingCycle && v.Value == minValTargetPressure)
+                                .Where(v => v.LoggedAt > startBreathingCycle && v.LoggedAt <= endBreathingCycle && v.Value == minValTargetPressure)
                                 .FirstOrDefault();
 
                             DateTime exhalemoment = targetPressureExhale.LoggedAt.AddMilliseconds(-40);
@@ -259,7 +262,7 @@ namespace VentilatorDaemon
                             }
 
                             var peakPressureMoment = pressureValues
-                               .Where(v => v.LoggedAt >= startBreathingCycle && v.LoggedAt <= endBreathingCycle)
+                               .Where(v => v.LoggedAt >= startBreathingCycle && v.LoggedAt <= exhalemoment)
                                .Aggregate((i1, i2) => i1.Value > i2.Value ? i1 : i2);
 
                             var plateauMinimumPressure = GetMinimum(pressureValues, peakPressureMoment.LoggedAt, exhalemoment);
@@ -382,6 +385,7 @@ namespace VentilatorDaemon
                     catch (Exception e)
                     {
                         Console.WriteLine(e.Message);
+                        Console.WriteLine(e.StackTrace);
                     }
 
                     var timeSpent = (DateTime.Now - start).TotalMilliseconds;
