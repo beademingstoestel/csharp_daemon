@@ -58,6 +58,54 @@ namespace VentilatorDaemon
         }
     }
 
+    class Reader
+    {
+        private static Thread inputThread;
+        private static AutoResetEvent getInput, gotInput;
+        private static string input;
+
+        static Reader()
+        {
+            getInput = new AutoResetEvent(false);
+            gotInput = new AutoResetEvent(false);
+            inputThread = new Thread(reader);
+            inputThread.IsBackground = true;
+            inputThread.Start();
+        }
+
+        private static void reader()
+        {
+            while (true)
+            {
+                getInput.WaitOne();
+                input = Console.ReadLine();
+                gotInput.Set();
+            }
+        }
+
+        // omit the parameter to read a line without a timeout
+        public static string ReadLine(int timeOutMillisecs = Timeout.Infinite, string defaultValue = null)
+        {
+            getInput.Set();
+            bool success = gotInput.WaitOne(timeOutMillisecs);
+            if (success)
+            {
+                return input;
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(defaultValue))
+                {
+                    throw new TimeoutException("User did not provide input within the timelimit.");
+                }
+                else
+                {
+                    return defaultValue;
+                }
+            }
+        }
+    }
+
     public class SerialThread
     {
         private SerialPort serialPort = new SerialPort();
@@ -596,15 +644,18 @@ namespace VentilatorDaemon
             Console.WriteLine("Available Ports:");
             foreach (string s in SerialPort.GetPortNames())
             {
-                if (String.IsNullOrWhiteSpace(portName))
+                if (s.IndexOf("ventilator") > -1)
                 {
-                    portName = s;
+                    serialPort.PortName = s;
+                    return;
                 }
+
+                portName = s;
                 Console.WriteLine("   {0}", s);
             }
 
             Console.Write("Enter COM port value (Default: {0}): ", portName);
-            string chosenPortName = Console.ReadLine();
+            string chosenPortName = Reader.ReadLine(5000, portName);
 
             if (string.IsNullOrWhiteSpace(chosenPortName))
             {
@@ -612,6 +663,8 @@ namespace VentilatorDaemon
             }
 
             serialPort.PortName = chosenPortName;
+
+            Console.WriteLine("Starting communication with {0}", serialPort.PortName);
         }
     }
 }
