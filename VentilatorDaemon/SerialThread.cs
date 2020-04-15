@@ -558,12 +558,15 @@ namespace VentilatorDaemon
                                     {
                                         Console.WriteLine("No communication with the arduino could be established, send reset signal");
 
-                                        /*dtrEnable = true;
-                                        if (serialPort.IsOpen)
+                                        if (Environment.OSVersion.Platform == PlatformID.Unix)
                                         {
-                                            serialPort.Close();
-                                            break;
-                                        }*/
+                                            dtrEnable = true;
+                                            if (serialPort.IsOpen)
+                                            {
+                                                serialPort.Close();
+                                                break;
+                                            }
+                                        }
                                     }
 
                                     await Task.Delay(1000);
