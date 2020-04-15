@@ -640,6 +640,13 @@ namespace VentilatorDaemon
             );
         }
 
+        public void SetPortName(string portName)
+        {
+            serialPort.PortName = portName;
+
+            Console.WriteLine("Starting communication with {0}", serialPort.PortName);
+        }
+
         public void SetPortName()
         {
             string portName = null;

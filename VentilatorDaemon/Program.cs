@@ -1,7 +1,11 @@
 ﻿using Flurl.Http;
 using Flurl.Http.Configuration;
+using MongoDB.Driver;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
+using System.Net;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -11,6 +15,9 @@ namespace VentilatorDaemon
     {
         static async Task Main(string[] args)
         {
+            //wait for mongo to be available
+            await CheckMongoAvailibility();
+            await CheckWebServerAvailibility();
 
             FlurlHttp.Configure(settings => {
                 var jsonSettings = new JsonSerializerSettings
@@ -33,7 +40,15 @@ namespace VentilatorDaemon
             WebSocketThread webSocketThread = new WebSocketThread("ws://localhost:3001", serialThread);
             ProcessingThread processingThread = new ProcessingThread(serialThread, webSocketThread);
 
-            serialThread.SetPortName();
+            var serialPort = Environment.GetEnvironmentVariable("SERIAL_PORT");
+            if (string.IsNullOrEmpty(serialPort))
+            {
+                serialThread.SetPortName();
+            }
+            else
+            {
+                serialThread.SetPortName(args[0]);
+            }
 
             var webSocketTask = webSocketThread.Start(cancellationToken);
             var serialTask = serialThread.Start(cancellationToken);
@@ -42,6 +57,56 @@ namespace VentilatorDaemon
             Task.WaitAll(webSocketTask, serialTask, processingTask);
 
             Console.WriteLine("Daemon finished");
+        }
+
+        static async Task CheckMongoAvailibility()
+        {
+            bool foundMongo = false;
+
+            while (!foundMongo)
+            {
+                try
+                {
+                    var client = new MongoClient("mongodb://localhost/beademing");
+                    var database = client.GetDatabase("beademing");
+
+                    await database.ListCollectionsAsync();
+
+                    foundMongo = true;
+                }
+                catch(Exception e)
+                {
+                    Console.WriteLine("Got an error waiting for mongo");
+                    await Task.Delay(1000);
+                }
+            } 
+        }
+
+        static async Task CheckWebServerAvailibility()
+        {
+            bool foundServer = false;
+            FlurlClient flurlClient = new FlurlClient("http://localhost:3001");
+
+            while (!foundServer)
+            {
+                try
+                {
+                    var version = Assembly.GetEntryAssembly().GetName().Version;
+
+                    Dictionary<string, string> dict = new Dictionary<string, string>();
+                    dict.Add("DAEMON_VERSION", version.ToString());
+
+                    await flurlClient.Request("/api/settings")
+                        .PutJsonAsync(dict);
+
+                    foundServer = true;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Got an error waiting for webserver");
+                    await Task.Delay(1000);
+                }
+            }
         }
     }
 }
