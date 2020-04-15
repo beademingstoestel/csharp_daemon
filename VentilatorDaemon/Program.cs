@@ -15,8 +15,10 @@ namespace VentilatorDaemon
     {
         static async Task Main(string[] args)
         {
+            var mongoHost = Environment.GetEnvironmentVariable("MONGO_HOST") ?? "localhost";
+
             //wait for mongo to be available
-            await CheckMongoAvailibility();
+            await CheckMongoAvailibility(mongoHost);
             await CheckWebServerAvailibility();
 
             FlurlHttp.Configure(settings => {
@@ -34,11 +36,11 @@ namespace VentilatorDaemon
             CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
             var cancellationToken = cancellationTokenSource.Token;
 
-            SerialThread serialThread = new SerialThread();
+            SerialThread serialThread = new SerialThread(mongoHost);
             //await serialThread.SendSettingToServer("DAEMON_VERSION", 1.0f);
 
             WebSocketThread webSocketThread = new WebSocketThread("ws://localhost:3001", serialThread);
-            ProcessingThread processingThread = new ProcessingThread(serialThread, webSocketThread);
+            ProcessingThread processingThread = new ProcessingThread(serialThread, webSocketThread, mongoHost);
 
             var serialPort = Environment.GetEnvironmentVariable("SERIAL_PORT");
             if (string.IsNullOrEmpty(serialPort))
@@ -59,7 +61,7 @@ namespace VentilatorDaemon
             Console.WriteLine("Daemon finished");
         }
 
-        static async Task CheckMongoAvailibility()
+        static async Task CheckMongoAvailibility(string databaseHost)
         {
             bool foundMongo = false;
 
@@ -67,7 +69,7 @@ namespace VentilatorDaemon
             {
                 try
                 {
-                    var client = new MongoClient("mongodb://localhost/beademing");
+                    var client = new MongoClient($"mongodb://{databaseHost}:27017/?connect=direct;replicaSet=rs0;readPreference=primaryPreferred");
                     var database = client.GetDatabase("beademing");
 
                     await database.ListCollectionsAsync();

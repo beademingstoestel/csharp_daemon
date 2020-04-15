@@ -167,13 +167,13 @@ namespace VentilatorDaemon
         private ConcurrentDictionary<byte, SentSerialMessage> waitingForAck = new ConcurrentDictionary<byte, SentSerialMessage>();
         private bool dtrEnable = false;
 
-        public SerialThread()
+        public SerialThread(string databaseHost)
         {
             serialPort.BaudRate = 115200;
             serialPort.ReadTimeout = 1500;
             serialPort.WriteTimeout = 1500;
 
-            client = new MongoClient("mongodb://localhost/beademing");
+            client = new MongoClient($"mongodb://{databaseHost}:27017/?connect=direct;replicaSet=rs0;readPreference=primaryPreferred");
             database = client.GetDatabase("beademing");
         }
 

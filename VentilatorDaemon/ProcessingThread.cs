@@ -49,9 +49,9 @@ namespace VentilatorDaemon
 
         FlurlClient flurlClient = new FlurlClient("http://localhost:3001");
 
-        public ProcessingThread(SerialThread serialThread, WebSocketThread webSocketThread)
+        public ProcessingThread(SerialThread serialThread, WebSocketThread webSocketThread, string databaseHost)
         {
-            client = new MongoClient("mongodb://localhost/beademing");
+            client = new MongoClient($"mongodb://{databaseHost}:27017/?connect=direct;replicaSet=rs0;readPreference=primaryPreferred");
             database = client.GetDatabase("beademing");
             this.serialThread = serialThread;
             this.webSocketThread = webSocketThread;
