@@ -27,6 +27,7 @@ stages:
         containerRegistry: 'DockerHubConnection'
         repository: 'beademingstoestel/daemon'
         dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
+        arguments: --build-arg build_number=$(tag)
         tags: |
           $(tag)
           latest
