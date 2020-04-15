@@ -38,7 +38,7 @@ namespace VentilatorDaemon
             var cancellationToken = cancellationTokenSource.Token;
 
             SerialThread serialThread = new SerialThread(mongoHost, interfaceHost);
-            //await serialThread.SendSettingToServer("DAEMON_VERSION", 1.0f);
+            serialThread.PlayBeep();
 
             WebSocketThread webSocketThread = new WebSocketThread($"ws://{interfaceHost}:3001", serialThread);
             ProcessingThread processingThread = new ProcessingThread(serialThread, webSocketThread, mongoHost, interfaceHost);
