@@ -126,7 +126,7 @@ namespace VentilatorDaemon
 
         private CancellationTokenSource ackTokenSource = new CancellationTokenSource();
 
-        FlurlClient flurlClient = new FlurlClient("http://localhost:3001");
+        readonly FlurlClient flurlClient;
 
         public List<Tuple<string, byte[]>> measurementIds = new List<Tuple<string, byte[]>>()
         {
@@ -167,13 +167,14 @@ namespace VentilatorDaemon
         private ConcurrentDictionary<byte, SentSerialMessage> waitingForAck = new ConcurrentDictionary<byte, SentSerialMessage>();
         private bool dtrEnable = false;
 
-        public SerialThread(string databaseHost)
+        public SerialThread(string databaseHost, string webServerHost)
         {
             serialPort.BaudRate = 115200;
             serialPort.ReadTimeout = 1500;
             serialPort.WriteTimeout = 1500;
 
             client = new MongoClient($"mongodb://{databaseHost}:27017/?connect=direct;replicaSet=rs0;readPreference=primaryPreferred");
+            flurlClient = new FlurlClient($"http://{webServerHost}:3001");
             database = client.GetDatabase("beademing");
         }
 

@@ -47,10 +47,11 @@ namespace VentilatorDaemon
         private readonly uint VOLUME_NOT_OK = 64;
         private readonly uint RESIDUAL_VOLUME_NOT_OK = 128;
 
-        FlurlClient flurlClient = new FlurlClient("http://localhost:3001");
+        readonly FlurlClient flurlClient;
 
-        public ProcessingThread(SerialThread serialThread, WebSocketThread webSocketThread, string databaseHost)
+        public ProcessingThread(SerialThread serialThread, WebSocketThread webSocketThread, string databaseHost, string webServerHost)
         {
+            flurlClient = new FlurlClient($"http://{webServerHost}:3001");
             client = new MongoClient($"mongodb://{databaseHost}:27017/?connect=direct;replicaSet=rs0;readPreference=primaryPreferred");
             database = client.GetDatabase("beademing");
             this.serialThread = serialThread;

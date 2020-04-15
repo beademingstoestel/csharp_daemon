@@ -16,10 +16,11 @@ namespace VentilatorDaemon
         static async Task Main(string[] args)
         {
             var mongoHost = Environment.GetEnvironmentVariable("MONGO_HOST") ?? "localhost";
+            var interfaceHost = Environment.GetEnvironmentVariable("INTERFACE_HOST") ?? "localhost";
 
             //wait for mongo to be available
             await CheckMongoAvailibility(mongoHost);
-            await CheckWebServerAvailibility();
+            await CheckWebServerAvailibility(interfaceHost);
 
             FlurlHttp.Configure(settings => {
                 var jsonSettings = new JsonSerializerSettings
@@ -36,11 +37,11 @@ namespace VentilatorDaemon
             CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
             var cancellationToken = cancellationTokenSource.Token;
 
-            SerialThread serialThread = new SerialThread(mongoHost);
+            SerialThread serialThread = new SerialThread(mongoHost, interfaceHost);
             //await serialThread.SendSettingToServer("DAEMON_VERSION", 1.0f);
 
-            WebSocketThread webSocketThread = new WebSocketThread("ws://localhost:3001", serialThread);
-            ProcessingThread processingThread = new ProcessingThread(serialThread, webSocketThread, mongoHost);
+            WebSocketThread webSocketThread = new WebSocketThread($"ws://{interfaceHost}:3001", serialThread);
+            ProcessingThread processingThread = new ProcessingThread(serialThread, webSocketThread, mongoHost, interfaceHost);
 
             var serialPort = Environment.GetEnvironmentVariable("SERIAL_PORT");
             if (string.IsNullOrEmpty(serialPort))
@@ -84,11 +85,11 @@ namespace VentilatorDaemon
             } 
         }
 
-        static async Task CheckWebServerAvailibility()
+        static async Task CheckWebServerAvailibility(string webServerHost)
         {
             bool foundServer = false;
-            FlurlClient flurlClient = new FlurlClient("http://localhost:3001");
-
+            FlurlClient flurlClient = new FlurlClient($"http://{webServerHost}:3001");
+            
             while (!foundServer)
             {
                 try
