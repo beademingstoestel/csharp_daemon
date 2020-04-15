@@ -47,7 +47,7 @@ namespace VentilatorDaemon
             }
             else
             {
-                serialThread.SetPortName(args[0]);
+                serialThread.SetPortName(serialPort);
             }
 
             var webSocketTask = webSocketThread.Start(cancellationToken);
