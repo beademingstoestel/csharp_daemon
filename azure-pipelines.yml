@@ -24,6 +24,8 @@ stages:
       displayName: Build an image
       inputs:
         command: build
+        containerRegistry: 'DockerHubConnection'
+        repository: 'beademingstoestel/daemon'
         dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
         tags: |
           $(tag)
@@ -32,7 +34,7 @@ stages:
       displayName: push daemon image
       inputs:
         containerRegistry: 'DockerHubConnection'
-        repository: 'beademingstoestel/interface'
+        repository: 'beademingstoestel/daemon'
         command: push
         tags: |
           $(tag)
