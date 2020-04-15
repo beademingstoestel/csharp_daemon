@@ -31,6 +31,10 @@
     <None Update="assets\beep.wav">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Dockerfile">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Dockerfile.Designer.cs</LastGenOutput>
+    </None>
   </ItemGroup>
 
 </Project>
