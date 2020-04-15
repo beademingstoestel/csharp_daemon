@@ -645,6 +645,13 @@ namespace VentilatorDaemon
             string portName = null;
 
             Console.WriteLine("Available Ports:");
+
+            while(SerialPort.GetPortNames().Count() == 0)
+            {
+                Thread.Sleep(1000);
+                Console.WriteLine("Waiting for serial ports to become available");
+            }
+
             foreach (string s in SerialPort.GetPortNames())
             {
                 if (s.IndexOf("ventilator") > -1)

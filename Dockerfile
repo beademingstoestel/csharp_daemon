@@ -2,9 +2,10 @@
 
 WORKDIR /app
 
-COPY ./VentilatorDaemon .
+COPY ./VentilatorDaemon/VentilatorDaemon.csproj .
+RUN dotnet restore --disable-parallel
 
-RUN dotnet restore
+COPY ./VentilatorDaemon .
 RUN dotnet publish -c Release -o out
 
 FROM mcr.microsoft.com/dotnet/core/runtime:3.1

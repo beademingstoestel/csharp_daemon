@@ -2,3 +2,4 @@ VentilatorDaemon/.vs
 VentilatorDaemon/obj
 VentilatorDaemon/bin
 VentilatorDaemon/publish*
+VentilatorDaemon/*.user
