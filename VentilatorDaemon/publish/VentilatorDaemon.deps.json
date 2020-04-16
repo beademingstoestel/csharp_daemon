@@ -7,11 +7,11 @@
   "targets": {
     ".NETCoreApp,Version=v3.1": {},
     ".NETCoreApp,Version=v3.1/win-x64": {
-      "VentilatorDaemon/1.0.0": {
+      "VentilatorDaemon/3.0.0-alpha": {
         "dependencies": {
           "Flurl.Http": "2.4.2",
-          "MathNet.Numerics": "4.9.0",
-          "MongoDB.Driver": "2.10.2",
+          "MongoDB.Driver": "2.10.3",
+          "NetCoreAudio": "1.5.0",
           "Newtonsoft.Json": "12.0.3",
           "System.IO.Ports": "4.7.0",
           "runtimepack.Microsoft.NETCore.App.Runtime.win-x64": "3.1.2"
@@ -851,14 +851,11 @@
           }
         }
       },
-      "DnsClient/1.2.0": {
-        "dependencies": {
-          "System.Buffers": "4.4.0"
-        },
+      "DnsClient/1.3.1": {
         "runtime": {
-          "lib/netstandard2.0/DnsClient.dll": {
-            "assemblyVersion": "1.2.0.0",
-            "fileVersion": "1.2.0.0"
+          "lib/netstandard2.1/DnsClient.dll": {
+            "assemblyVersion": "1.3.1.0",
+            "fileVersion": "1.3.1.0"
           }
         }
       },
@@ -883,14 +880,6 @@
           }
         }
       },
-      "MathNet.Numerics/4.9.0": {
-        "runtime": {
-          "lib/netstandard2.0/MathNet.Numerics.dll": {
-            "assemblyVersion": "4.9.0.0",
-            "fileVersion": "4.9.0.0"
-          }
-        }
-      },
       "Microsoft.NETCore.Platforms/3.1.0": {},
       "Microsoft.NETCore.Targets/1.1.0": {},
       "Microsoft.Win32.Primitives/4.3.0": {
@@ -907,7 +896,7 @@
           "System.Security.Principal.Windows": "4.7.0"
         }
       },
-      "MongoDB.Bson/2.10.2": {
+      "MongoDB.Bson/2.10.3": {
         "dependencies": {
           "NETStandard.Library": "1.6.1",
           "System.Collections.NonGeneric": "4.0.1",
@@ -918,15 +907,15 @@
         },
         "runtime": {
           "lib/netstandard1.5/MongoDB.Bson.dll": {
-            "assemblyVersion": "2.10.2.0",
-            "fileVersion": "2.10.2.0"
+            "assemblyVersion": "2.10.3.0",
+            "fileVersion": "2.10.3.0"
           }
         }
       },
-      "MongoDB.Driver/2.10.2": {
+      "MongoDB.Driver/2.10.3": {
         "dependencies": {
-          "MongoDB.Bson": "2.10.2",
-          "MongoDB.Driver.Core": "2.10.2",
+          "MongoDB.Bson": "2.10.3",
+          "MongoDB.Driver.Core": "2.10.3",
           "MongoDB.Libmongocrypt": "1.0.0",
           "NETStandard.Library": "1.6.1",
           "System.ComponentModel.TypeConverter": "4.1.0",
@@ -934,21 +923,21 @@
         },
         "runtime": {
           "lib/netstandard1.5/MongoDB.Driver.dll": {
-            "assemblyVersion": "2.10.2.0",
-            "fileVersion": "2.10.2.0"
+            "assemblyVersion": "2.10.3.0",
+            "fileVersion": "2.10.3.0"
           }
         }
       },
-      "MongoDB.Driver.Core/2.10.2": {
+      "MongoDB.Driver.Core/2.10.3": {
         "dependencies": {
-          "DnsClient": "1.2.0",
-          "MongoDB.Bson": "2.10.2",
+          "DnsClient": "1.3.1",
+          "MongoDB.Bson": "2.10.3",
           "MongoDB.Libmongocrypt": "1.0.0",
           "NETStandard.Library": "1.6.1",
           "SharpCompress": "0.23.0",
           "System.Collections.Specialized": "4.0.1",
           "System.Diagnostics.TextWriterTraceListener": "4.0.0",
-          "System.Diagnostics.TraceSource": "4.0.0",
+          "System.Diagnostics.TraceSource": "4.3.0",
           "System.Net.NameResolution": "4.3.0",
           "System.Net.Security": "4.3.2",
           "System.Security.SecureString": "4.0.0",
@@ -956,8 +945,8 @@
         },
         "runtime": {
           "lib/netstandard1.5/MongoDB.Driver.Core.dll": {
-            "assemblyVersion": "2.10.2.0",
-            "fileVersion": "2.10.2.0"
+            "assemblyVersion": "2.10.3.0",
+            "fileVersion": "2.10.3.0"
           }
         }
       },
@@ -969,6 +958,14 @@
           "lib/netstandard1.5/MongoDB.Libmongocrypt.dll": {
             "assemblyVersion": "1.0.0.0",
             "fileVersion": "1.0.0.0"
+          }
+        }
+      },
+      "NetCoreAudio/1.5.0": {
+        "runtime": {
+          "lib/netstandard2.0/NetCoreAudio.dll": {
+            "assemblyVersion": "1.5.0.0",
+            "fileVersion": "1.5.0.0"
           }
         }
       },
@@ -1141,7 +1138,7 @@
       "runtime.win.System.Diagnostics.Debug/4.3.0": {},
       "runtime.win.System.IO.FileSystem/4.3.0": {
         "dependencies": {
-          "System.Buffers": "4.4.0",
+          "System.Buffers": "4.3.0",
           "System.Collections": "4.3.0",
           "System.Diagnostics.Debug": "4.3.0",
           "System.IO": "4.3.0",
@@ -1215,7 +1212,15 @@
           "System.Runtime": "4.3.0"
         }
       },
-      "System.Buffers/4.4.0": {},
+      "System.Buffers/4.3.0": {
+        "dependencies": {
+          "System.Diagnostics.Debug": "4.3.0",
+          "System.Diagnostics.Tracing": "4.3.0",
+          "System.Resources.ResourceManager": "4.3.0",
+          "System.Runtime": "4.3.0",
+          "System.Threading": "4.3.0"
+        }
+      },
       "System.Collections/4.3.0": {
         "dependencies": {
           "Microsoft.NETCore.Platforms": "3.1.0",
@@ -1344,7 +1349,7 @@
       },
       "System.Diagnostics.TextWriterTraceListener/4.0.0": {
         "dependencies": {
-          "System.Diagnostics.TraceSource": "4.0.0",
+          "System.Diagnostics.TraceSource": "4.3.0",
           "System.Globalization": "4.3.0",
           "System.IO": "4.3.0",
           "System.Resources.ResourceManager": "4.3.0",
@@ -1360,7 +1365,7 @@
           "runtime.any.System.Diagnostics.Tools": "4.3.0"
         }
       },
-      "System.Diagnostics.TraceSource/4.0.0": {
+      "System.Diagnostics.TraceSource/4.3.0": {
         "dependencies": {
           "Microsoft.NETCore.Platforms": "3.1.0",
           "System.Collections": "4.3.0",
@@ -1440,7 +1445,7 @@
       "System.IO.Compression/4.3.0": {
         "dependencies": {
           "Microsoft.NETCore.Platforms": "3.1.0",
-          "System.Buffers": "4.4.0",
+          "System.Buffers": "4.3.0",
           "System.Collections": "4.3.0",
           "System.Diagnostics.Debug": "4.3.0",
           "System.IO": "4.3.0",
@@ -1458,7 +1463,7 @@
       },
       "System.IO.Compression.ZipFile/4.3.0": {
         "dependencies": {
-          "System.Buffers": "4.4.0",
+          "System.Buffers": "4.3.0",
           "System.IO": "4.3.0",
           "System.IO.Compression": "4.3.0",
           "System.IO.FileSystem": "4.3.0",
@@ -2064,7 +2069,7 @@
     }
   },
   "libraries": {
-    "VentilatorDaemon/1.0.0": {
+    "VentilatorDaemon/3.0.0-alpha": {
       "type": "project",
       "serviceable": false,
       "sha512": ""
@@ -2074,12 +2079,12 @@
       "serviceable": false,
       "sha512": ""
     },
-    "DnsClient/1.2.0": {
+    "DnsClient/1.3.1": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-P34wUkeqU4FoQiOMV8OjpdeDZKs4d3r+VlHuKJ6eO5feiZgna3+9MF5orHRUn3DAv1g/HPE5hlkGucmxmsFfBw==",
-      "path": "dnsclient/1.2.0",
-      "hashPath": "dnsclient.1.2.0.nupkg.sha512"
+      "sha512": "sha512-b9XczgqSjs3dd+OlV799jn+LXxdfirln1q36GKjs3QwWBhjhgIvgHLEG5s2VrBLcP4ogQjtA0PZ5+AmRJ35Vhg==",
+      "path": "dnsclient/1.3.1",
+      "hashPath": "dnsclient.1.3.1.nupkg.sha512"
     },
     "Flurl/2.8.2": {
       "type": "package",
@@ -2094,13 +2099,6 @@
       "sha512": "sha512-VfSJ0DKzh6kf2IOZGG1/JpHajhtqzGp1t+M1QSyFGse7c4Gg1DpH80LTveYea2hV1BEtvPPEp6A4iZ78D8bxGQ==",
       "path": "flurl.http/2.4.2",
       "hashPath": "flurl.http.2.4.2.nupkg.sha512"
-    },
-    "MathNet.Numerics/4.9.0": {
-      "type": "package",
-      "serviceable": true,
-      "sha512": "sha512-4cYzhuMDq57oC6lwhMmuigdhP+oywmp1bMtFzvzz4wYr5eWbg0JLDPo/L1juqDkIBj+rc3FrxUEX7jcHRmnF+w==",
-      "path": "mathnet.numerics/4.9.0",
-      "hashPath": "mathnet.numerics.4.9.0.nupkg.sha512"
     },
     "Microsoft.NETCore.Platforms/3.1.0": {
       "type": "package",
@@ -2130,26 +2128,26 @@
       "path": "microsoft.win32.registry/4.7.0",
       "hashPath": "microsoft.win32.registry.4.7.0.nupkg.sha512"
     },
-    "MongoDB.Bson/2.10.2": {
+    "MongoDB.Bson/2.10.3": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-MUFIFmXwTfc53zH4Ik54aNofKkrU1zWBl/6ShOtHmANk+cejGhI5EnLZb/L6cSS3t0hnsaSjeAZ8bF2UUSYA1g==",
-      "path": "mongodb.bson/2.10.2",
-      "hashPath": "mongodb.bson.2.10.2.nupkg.sha512"
+      "sha512": "sha512-UT6w7vsiXlCH7mABxj/NuaGR0KWfXIW5zP5RHW16JrviiygSoEb6fEUhs1QgrjdcNHP+gns1/T9Sfqi4KUPPew==",
+      "path": "mongodb.bson/2.10.3",
+      "hashPath": "mongodb.bson.2.10.3.nupkg.sha512"
     },
-    "MongoDB.Driver/2.10.2": {
+    "MongoDB.Driver/2.10.3": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-H0WtJy8FVlmW/g0sCghFgH41pjUFR7bwXWIHl/hMqaL+rKFtBlUrow9tBEd1MFq3G4P/bLTtsRPIXX/MzJiSNQ==",
-      "path": "mongodb.driver/2.10.2",
-      "hashPath": "mongodb.driver.2.10.2.nupkg.sha512"
+      "sha512": "sha512-KArEHjZrga9cGM8/OcYpr5vkQq4V8P54L3L/D8oUNAVREwzJ2BExX8LNNV7Y2qt9lWk3kO8JkUcjgoD77DyDog==",
+      "path": "mongodb.driver/2.10.3",
+      "hashPath": "mongodb.driver.2.10.3.nupkg.sha512"
     },
-    "MongoDB.Driver.Core/2.10.2": {
+    "MongoDB.Driver.Core/2.10.3": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-fW7Vq8u3CC+ivqKiWOIO4F4pDy+UD1onllcjT2Pi5a5xw3A2rtYt2kOWaR/Kxd+aakoNMXCHEZyDXusNM1n/Lw==",
-      "path": "mongodb.driver.core/2.10.2",
-      "hashPath": "mongodb.driver.core.2.10.2.nupkg.sha512"
+      "sha512": "sha512-YnHsNpIVDzjrDDagg1mhu7F7i11zAdSxQlmhbD3+VuU5Yb2fcjVrS2s90QsrshxuAAXg3DreYNx7hWBK4JvKGg==",
+      "path": "mongodb.driver.core/2.10.3",
+      "hashPath": "mongodb.driver.core.2.10.3.nupkg.sha512"
     },
     "MongoDB.Libmongocrypt/1.0.0": {
       "type": "package",
@@ -2157,6 +2155,13 @@
       "sha512": "sha512-zkcsra5riDiKXqOiCKskycakpbO5RYkuUWG+z2AZML3A4NShvAs/D3InwkxH0OcbjZQOWo763Hjdmhr0AaylcA==",
       "path": "mongodb.libmongocrypt/1.0.0",
       "hashPath": "mongodb.libmongocrypt.1.0.0.nupkg.sha512"
+    },
+    "NetCoreAudio/1.5.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-m1mMm/R5Uuf3HAVn5woSmlZHX/M47hLZ1R1NL+iY36I9om9/85irdNQPoSFPDMtsccFOm7iQr+pNTvU+UClceQ==",
+      "path": "netcoreaudio/1.5.0",
+      "hashPath": "netcoreaudio.1.5.0.nupkg.sha512"
     },
     "NETStandard.Library/1.6.1": {
       "type": "package",
@@ -2508,12 +2513,12 @@
       "path": "system.appcontext/4.3.0",
       "hashPath": "system.appcontext.4.3.0.nupkg.sha512"
     },
-    "System.Buffers/4.4.0": {
+    "System.Buffers/4.3.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-AwarXzzoDwX6BgrhjoJsk6tUezZEozOT5Y9QKF94Gl4JK91I4PIIBkBco9068Y9/Dra8Dkbie99kXB8+1BaYKw==",
-      "path": "system.buffers/4.4.0",
-      "hashPath": "system.buffers.4.4.0.nupkg.sha512"
+      "sha512": "sha512-R+e6EuI97pPuU2zgfBm6flV7vvPnkj3PZN5fZrGTfcpYcNP7JgYkOXFwHa/e+C/h86ZdG3uVjjVDwgQGkm8tOA==",
+      "path": "system.buffers/4.3.0",
+      "hashPath": "system.buffers.4.3.0.nupkg.sha512"
     },
     "System.Collections/4.3.0": {
       "type": "package",
@@ -2606,12 +2611,12 @@
       "path": "system.diagnostics.tools/4.3.0",
       "hashPath": "system.diagnostics.tools.4.3.0.nupkg.sha512"
     },
-    "System.Diagnostics.TraceSource/4.0.0": {
+    "System.Diagnostics.TraceSource/4.3.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-/fMgk8ewX2JaufuAh/ByELxU1myKhXsXmjHQuF12vlHvUeBWRwJ6/09nrk5Y7lafg67HAD3OHvPTVb3MrToPbQ==",
-      "path": "system.diagnostics.tracesource/4.0.0",
-      "hashPath": "system.diagnostics.tracesource.4.0.0.nupkg.sha512"
+      "sha512": "sha512-VnYp1NxGx8Ww731y2LJ1vpfb/DKVNKEZ8Jsh5SgQTZREL/YpWRArgh9pI8CDLmgHspZmLL697CaLvH85qQpRiw==",
+      "path": "system.diagnostics.tracesource/4.3.0",
+      "hashPath": "system.diagnostics.tracesource.4.3.0.nupkg.sha512"
     },
     "System.Diagnostics.Tracing/4.3.0": {
       "type": "package",
