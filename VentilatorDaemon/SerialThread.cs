@@ -445,6 +445,8 @@ namespace VentilatorDaemon
 
                             await Task.Delay(500);
                         }
+
+                        Console.WriteLine("Stop alarm thread");
                     });
                 }
             }
@@ -500,7 +502,7 @@ namespace VentilatorDaemon
 
                             if (!arduinoTimeOffset.HasValue)
                             {
-                                arduinoTimeOffset = DateTime.UtcNow.AddMilliseconds(-time);
+                                arduinoTimeOffset = DateTime.UtcNow.AddMilliseconds(-(time + 20));
                             }
 
                             _ = SendMeasurementToMongo("measured_values",
