@@ -287,8 +287,8 @@ namespace VentilatorDaemon
 
         public void PlayBeep()
         {
-            NetCoreAudio.Player player = new NetCoreAudio.Player();
-            _ = player.Play(@"./assets/beep.wav");
+            //NetCoreAudio.Player player = new NetCoreAudio.Player();
+            //_ = player.Play(@"./assets/beep.wav");
         }
 
         public async Task SendAlarmToServer(uint value)
@@ -524,15 +524,14 @@ namespace VentilatorDaemon
         }
 
         private Task AlarmSoundTask(CancellationToken cancellationToken)
-        {
-            NetCoreAudio.Player player = new NetCoreAudio.Player();
-            
+        {            
             return Task.Run(async () =>
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
                     if (ShouldPlayAlarm)
                     {
+                        //NetCoreAudio.Player player = new NetCoreAudio.Player();
                         //await player.Play("./assets/beep.wav");
                     }
                     await Task.Delay(400);
