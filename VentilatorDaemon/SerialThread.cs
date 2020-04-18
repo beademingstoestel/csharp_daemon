@@ -560,6 +560,7 @@ namespace VentilatorDaemon
 
                             waitingForAck.Clear();
                             serialPort.DtrEnable = dtrEnable;
+                            serialPort.RtsEnable = dtrEnable;
                             // next reconnection should not reset
                             dtrEnable = false;
                             
