@@ -146,6 +146,7 @@ namespace VentilatorDaemon
         readonly FlurlClient flurlClient;
 
         private DateTime? arduinoTimeOffset = null;
+        private long timeAtOffset = 0;
 
         public List<Tuple<string, byte[]>> measurementIds = new List<Tuple<string, byte[]>>()
         {
@@ -500,9 +501,10 @@ namespace VentilatorDaemon
                             var flow = BitConverter.ToInt16(message, 12) / 100.0;
                             var time = BitConverter.ToUInt32(message, 14);                            
 
-                            if (!arduinoTimeOffset.HasValue)
+                            if (!arduinoTimeOffset.HasValue || time - timeAtOffset > 120e3)
                             {
-                                arduinoTimeOffset = DateTime.UtcNow.AddMilliseconds(-(time + 20));
+                                arduinoTimeOffset = timeStamp.AddMilliseconds(-(time + 20));
+                                timeAtOffset = time;
                             }
 
                             _ = SendMeasurementToMongo("measured_values",
