@@ -12,6 +12,7 @@ namespace VentilatorDaemon
     {
         private string uri;
         private readonly SerialThread serialThread;
+        private readonly AlarmThread alarmThread;
         private WebSocketWrapper webSocketWrapper;
 
         private Dictionary<string, float> settings = new Dictionary<string, float>();
@@ -42,10 +43,11 @@ namespace VentilatorDaemon
 
         private readonly string settingsPath = "/api/settings";
 
-        public WebSocketThread(string uri, SerialThread serialThread)
+        public WebSocketThread(string uri, SerialThread serialThread, AlarmThread alarmThread)
         {
             this.uri = uri;
             this.serialThread = serialThread;
+            this.alarmThread = alarmThread;
         }
 
         public Dictionary<string, float> Settings
@@ -115,11 +117,11 @@ namespace VentilatorDaemon
 
                                 if (name == "RA")
                                 {
-                                    serialThread.ResetAlarm();
+                                    alarmThread.ResetAlarm();
                                 }
                                 else if (name == "MT")
                                 {
-                                    serialThread.AlarmMuted = propertyValue > 0.0f;
+                                    alarmThread.AlarmMuted = propertyValue > 0.0f;
                                 }
                                 else if (name == "ACTIVE" && propertyValue >= 0.9f && propertyValue < 1.1f) // see if float value is close to 1
                                 {

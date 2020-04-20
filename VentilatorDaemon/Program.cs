@@ -15,13 +15,47 @@ namespace VentilatorDaemon
     {
         static async Task Main(string[] args)
         {
+            // get environment variables
             var mongoHost = Environment.GetEnvironmentVariable("MONGO_HOST") ?? "localhost";
             var interfaceHost = Environment.GetEnvironmentVariable("INTERFACE_HOST") ?? "localhost";
+            var serialPort = Environment.GetEnvironmentVariable("SERIAL_PORT");
 
             //wait for mongo to be available
             await CheckMongoAvailibility(mongoHost);
             await CheckWebServerAvailibility(interfaceHost);
 
+            GeneralConfiguration();
+
+            Console.WriteLine("Starting daemon");
+            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+            var cancellationToken = cancellationTokenSource.Token;
+
+            AlarmThread alarmThread = new AlarmThread();
+            SerialThread serialThread = new SerialThread(mongoHost, interfaceHost, alarmThread);
+            WebSocketThread webSocketThread = new WebSocketThread($"ws://{interfaceHost}:3001", serialThread, alarmThread);
+            ProcessingThread processingThread = new ProcessingThread(serialThread, webSocketThread, alarmThread, mongoHost, interfaceHost);
+
+            if (string.IsNullOrEmpty(serialPort))
+            {
+                serialThread.SetPortName();
+            }
+            else
+            {
+                serialThread.SetPortName(serialPort);
+            }
+
+            var alarmTask = alarmThread.Start(cancellationToken);
+            var webSocketTask = webSocketThread.Start(cancellationToken);
+            var serialTask = serialThread.Start(cancellationToken);
+            var processingTask = processingThread.Start(cancellationToken);
+
+            Task.WaitAll(webSocketTask, serialTask, processingTask, alarmTask);
+
+            Console.WriteLine("Daemon finished");
+        }
+
+        static void GeneralConfiguration()
+        {
             FlurlHttp.Configure(settings => {
                 var jsonSettings = new JsonSerializerSettings
                 {
@@ -33,33 +67,6 @@ namespace VentilatorDaemon
 
             Thread.CurrentThread.CurrentCulture = new System.Globalization.CultureInfo("en-US");
             Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo("en-US");
-            Console.WriteLine("Starting daemon");
-            CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
-            var cancellationToken = cancellationTokenSource.Token;
-
-            SerialThread serialThread = new SerialThread(mongoHost, interfaceHost);
-            serialThread.PlayBeep();
-
-            WebSocketThread webSocketThread = new WebSocketThread($"ws://{interfaceHost}:3001", serialThread);
-            ProcessingThread processingThread = new ProcessingThread(serialThread, webSocketThread, mongoHost, interfaceHost);
-
-            var serialPort = Environment.GetEnvironmentVariable("SERIAL_PORT");
-            if (string.IsNullOrEmpty(serialPort))
-            {
-                serialThread.SetPortName();
-            }
-            else
-            {
-                serialThread.SetPortName(serialPort);
-            }
-
-            var webSocketTask = webSocketThread.Start(cancellationToken);
-            var serialTask = serialThread.Start(cancellationToken);
-            var processingTask = processingThread.Start(cancellationToken);
-
-            Task.WaitAll(webSocketTask, serialTask, processingTask);
-
-            Console.WriteLine("Daemon finished");
         }
 
         static async Task CheckMongoAvailibility(string databaseHost)

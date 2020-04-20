@@ -1,126 +1,24 @@
 ﻿using Flurl.Http;
-using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Dynamic;
 using System.IO.Ports;
 using System.Linq;
-using System.Linq.Expressions;
-using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using VentilatorDaemon.Helpers.Console;
+using VentilatorDaemon.Helpers.Serial;
+using VentilatorDaemon.Models.Db;
 
 namespace VentilatorDaemon
 {
-    [BsonIgnoreExtraElements]
-    public class ValueEntry
-    {
-        [BsonElement("value")]
-        public MeasuredValues Value { get; set; }
-        [BsonElement("loggedAt")]
-        public DateTime LoggedAt { get; set; }
-    }
-
-    [BsonIgnoreExtraElements]
-    public class MeasuredValues
-    {
-        [BsonElement("volume")]
-        public double Volume { get; set; }
-        [BsonElement("pressure")]
-        public double Pressure { get; set; }
-        [BsonElement("targetPressure")]
-        public double TargetPressure { get; set; }
-        [BsonElement("flow")]
-        public double Flow { get; set; }
-        [BsonElement("trigger")]
-        public int Trigger { get; set; }
-        [BsonElement("breathsPerMinute")]
-        public double BreathsPerMinute { get; set; }
-    }
-
     public enum ConnectionState
     {
         SerialNotConnected = 0,
         NoCommunication = 1,
         Connected = 2,
-    }
-
-    public static class ByteArrayHelpers
-    {
-        public static bool StartsWith(this byte[] hayStack, byte[] needle)
-        {
-            for (int i = 0; i < Math.Min(hayStack.Length, needle.Length); i++)
-            {
-                if (hayStack[i] != needle[i])
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        public static byte CalculateCrc(this byte[] message, int length)
-        {
-            byte checksum = 0;
-            for (var i = 0; i < length; i++)
-            {
-                checksum ^= message[i];
-            }
-
-            return checksum;
-        }
-    }
-
-    class Reader
-    {
-        private static Thread inputThread;
-        private static AutoResetEvent getInput, gotInput;
-        private static string input;
-
-        static Reader()
-        {
-            getInput = new AutoResetEvent(false);
-            gotInput = new AutoResetEvent(false);
-            inputThread = new Thread(reader);
-            inputThread.IsBackground = true;
-            inputThread.Start();
-        }
-
-        private static void reader()
-        {
-            while (true)
-            {
-                getInput.WaitOne();
-                input = Console.ReadLine();
-                gotInput.Set();
-            }
-        }
-
-        // omit the parameter to read a line without a timeout
-        public static string ReadLine(int timeOutMillisecs = Timeout.Infinite, string defaultValue = null)
-        {
-            getInput.Set();
-            bool success = gotInput.WaitOne(timeOutMillisecs);
-            if (success)
-            {
-                return input;
-            }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(defaultValue))
-                {
-                    throw new TimeoutException("User did not provide input within the timelimit.");
-                }
-                else
-                {
-                    return defaultValue;
-                }
-            }
-        }
     }
 
     public class SerialThread
@@ -136,10 +34,6 @@ namespace VentilatorDaemon
         private DateTime lastMessageReceived;
 
         private readonly uint ARDUINO_CONNECTION_NOT_OK = 256;
-
-        private uint alarmValue = 0;
-        private bool hasToSendAlarmReset = false;
-        private bool alarmMuted = false;
 
         private CancellationTokenSource ackTokenSource = new CancellationTokenSource();
 
@@ -182,13 +76,15 @@ namespace VentilatorDaemon
         private byte[] ack = ASCIIEncoding.ASCII.GetBytes("ACK=");
         private byte[] alarm = ASCIIEncoding.ASCII.GetBytes("ALARM=");
         private byte[] measurement = new byte[] { 0x02, 0x01 };
+
         private readonly MongoClient client;
         private readonly IMongoDatabase database;
+        private readonly AlarmThread alarmThread;
 
         private ConcurrentDictionary<byte, SentSerialMessage> waitingForAck = new ConcurrentDictionary<byte, SentSerialMessage>();
         private bool dtrEnable = false;
 
-        public SerialThread(string databaseHost, string webServerHost)
+        public SerialThread(string databaseHost, string webServerHost, AlarmThread alarmThread)
         {
             serialPort.BaudRate = 115200;
             serialPort.ReadTimeout = 1500;
@@ -197,31 +93,8 @@ namespace VentilatorDaemon
             client = new MongoClient($"mongodb://{databaseHost}:27017/?connect=direct;replicaSet=rs0;readPreference=primaryPreferred");
             flurlClient = new FlurlClient($"http://{webServerHost}:3001");
             database = client.GetDatabase("beademing");
-        }
 
-        public uint AlarmValue
-        {
-            get => alarmValue;
-            set
-            {
-                alarmValue = alarmValue | value;
-
-                _= SendAlarmToServer(AlarmValue);
-            }
-        }
-
-        public bool AlarmMuted
-        {
-            get => alarmMuted;
-            set
-            {
-                alarmMuted = value;
-            }
-        }
-
-        private bool ShouldPlayAlarm
-        {
-            get => alarmValue > 0 && !alarmMuted;
+            this.alarmThread = alarmThread;
         }
 
         public ConnectionState ConnectionState { get; set; } = ConnectionState.SerialNotConnected;
@@ -279,11 +152,6 @@ namespace VentilatorDaemon
                 }
                 catch (Exception) { }
             }
-        }
-
-        public void ResetAlarm()
-        {
-            hasToSendAlarmReset = true;
         }
 
         public void PlayBeep()
@@ -406,7 +274,7 @@ namespace VentilatorDaemon
                 if (uint.TryParse(tokens[1], out newAlarmValue))
                 {
                     Console.WriteLine("Arduino sends alarmvalue: {0}", newAlarmValue);
-                    AlarmValue = newAlarmValue << 16;
+                    alarmThread.AlarmValue = newAlarmValue << 16;
                 }
 
                 if (!alarmReceived)
@@ -417,31 +285,9 @@ namespace VentilatorDaemon
                     {
                         while (alarmReceived)
                         {
-                            uint alarmValueToSend = 0;
-
-                            if (hasToSendAlarmReset)
-                            {
-                                alarmValueToSend = (alarmValue & 0xFFFF0000) >> 16;
-
-                                if ((alarmValue & 0x0000FFFF) > 0)
-                                {
-                                    alarmValueToSend |= 1;
-                                }
-
-                                alarmValue = 0;
-                                hasToSendAlarmReset = false;
-                            }
-                            else
-                            {
-                                if (alarmValue > 0)
-                                {
-                                    alarmValueToSend = 1;
-                                }
-                            }
-
                             // send alarm ping
-                            var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("ALARM={0}", alarmValueToSend));
-                            Console.WriteLine("Send alarm {0} to arduino {1}", alarmValue, ASCIIEncoding.ASCII.GetString(bytes));
+                            var bytes = alarmThread.ComposeAlarmMessage();
+                            Console.WriteLine("Send alarm {0} to arduino {1}", alarmThread.AlarmValue, ASCIIEncoding.ASCII.GetString(bytes));
                             WriteData(bytes);
 
                             await Task.Delay(500);
@@ -525,23 +371,7 @@ namespace VentilatorDaemon
             }
         }
 
-        private Task AlarmSoundTask(CancellationToken cancellationToken)
-        {            
-            return Task.Run(async () =>
-            {
-                while (!cancellationToken.IsCancellationRequested)
-                {
-                    if (ShouldPlayAlarm)
-                    {
-                        //NetCoreAudio.Player player = new NetCoreAudio.Player();
-                        //await player.Play("./assets/beep.wav");
-                    }
-                    await Task.Delay(400);
-                }
-            });
-        }
-
-        private Task SerialCommunicationTask(CancellationToken cancellationToken)
+        public Task Start(CancellationToken cancellationToken)
         {
             const int BUFFERLENGTH = 4096;
             byte[] buffer = new byte[BUFFERLENGTH];
@@ -565,7 +395,7 @@ namespace VentilatorDaemon
                             serialPort.RtsEnable = dtrEnable;
                             // next reconnection should not reset
                             dtrEnable = false;
-                            
+
                             serialPort.Open();
 
                             lastMessageReceived = DateTime.Now;
@@ -727,7 +557,7 @@ namespace VentilatorDaemon
                         alarmReceived = false;
 
 
-                        AlarmValue = ARDUINO_CONNECTION_NOT_OK;
+                        alarmThread.AlarmValue = ARDUINO_CONNECTION_NOT_OK;
                     }
                 }
 
@@ -736,14 +566,6 @@ namespace VentilatorDaemon
                     serialPort.Close();
                 }
             });
-        }
-
-        public Task Start(CancellationToken cancellationToken)
-        {
-            return Task.WhenAll(
-                    AlarmSoundTask(cancellationToken),
-                    SerialCommunicationTask(cancellationToken)
-            );
         }
 
         public void SetPortName(string portName)

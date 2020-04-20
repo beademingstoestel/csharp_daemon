@@ -27,11 +27,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="assets\" />
+    <Folder Include="Assets\" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="assets\beep.wav">
+    <None Update="Assets\beep.wav">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Dockerfile">

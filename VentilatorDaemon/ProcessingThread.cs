@@ -1,45 +1,23 @@
 ﻿using Flurl.Http;
 using MongoDB.Driver;
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
-using System.Runtime.Serialization;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using VentilatorDaemon.Models.Db;
+using VentilatorDaemon.Models.Api;
 
 namespace VentilatorDaemon
 {
-    public class CalculatedValues
-    {
-        [JsonProperty("IE")]
-        public double IE { get; set; }
-        [JsonProperty("tidalVolume")]
-        public double TidalVolume { get; set; }
-        [JsonProperty("volumePerMinute")]
-        public double VolumePerMinute { get; set; }
-        [JsonProperty("respatoryRate")]
-        public double RespatoryRate { get; set; }
-        [JsonProperty("pressurePlateau")]
-        public double PressurePlateau { get; set; }
-
-        public void ResetValues()
-        {
-            IE = 0.0;
-            VolumePerMinute = 0.0;
-            RespatoryRate = 0.0;
-            PressurePlateau = 0.0;
-        }
-    }
-
     public class ProcessingThread
     {
         private readonly MongoClient client;
         private readonly IMongoDatabase database;
         private readonly SerialThread serialThread;
         private readonly WebSocketThread webSocketThread;
+        private readonly AlarmThread alarmThread;
 
         private readonly uint BPM_TOO_LOW = 1;
         private readonly uint PEEP_NOT_OK = 16;
@@ -49,13 +27,14 @@ namespace VentilatorDaemon
 
         readonly FlurlClient flurlClient;
 
-        public ProcessingThread(SerialThread serialThread, WebSocketThread webSocketThread, string databaseHost, string webServerHost)
+        public ProcessingThread(SerialThread serialThread, WebSocketThread webSocketThread, AlarmThread alarmThread, string databaseHost, string webServerHost)
         {
             flurlClient = new FlurlClient($"http://{webServerHost}:3001");
             client = new MongoClient($"mongodb://{databaseHost}:27017/?connect=direct;replicaSet=rs0;readPreference=primaryPreferred");
             database = client.GetDatabase("beademing");
             this.serialThread = serialThread;
             this.webSocketThread = webSocketThread;
+            this.alarmThread = alarmThread;
         }
 
         private List<ValueEntry> GetDocuments(string collection, int number)
@@ -164,10 +143,12 @@ namespace VentilatorDaemon
                         if (!(settings.ContainsKey("ACTIVE") && settings["ACTIVE"] > 1.0f))
                         {
                             // make sure we stop playing the alarm
-                            serialThread.ResetAlarm();
+                            alarmThread.ResetAlarm();
                             await Task.Delay(2000);
                             continue;
                         }
+
+                        // wait for five full breathing cycles after a setting change
 
                         uint alarmBits = 0;
 
@@ -341,7 +322,7 @@ namespace VentilatorDaemon
                             //await serialThread.SendSettingToServer("breathingCycleStart", startBreathingCycle.Value.);
                         }
 
-                        serialThread.AlarmValue = alarmBits;
+                        alarmThread.AlarmValue = alarmBits;
 
                         
                         if (breathingCycles.Count > 1)
