@@ -9,6 +9,8 @@ using VentilatorDaemon.Helpers.WebSocket;
 using VentilatorDaemon.Models;
 using Microsoft.Extensions.Logging;
 using System.Linq;
+using System.Data.SqlTypes;
+using VentilatorDaemon.Services;
 
 namespace VentilatorDaemon
 {
@@ -17,8 +19,11 @@ namespace VentilatorDaemon
         private string uri;
         private readonly SerialThread serialThread;
         private readonly AlarmThread alarmThread;
+        private readonly IApiService apiService;
         private readonly ILogger<WebSocketThread> logger;
         private WebSocketWrapper webSocketWrapper;
+
+        private CancellationTokenSource muteResetCancellationTokenSource = new CancellationTokenSource();
 
         private bool connected = false;
         private int id = 0;
@@ -60,11 +65,13 @@ namespace VentilatorDaemon
         public WebSocketThread(ProgramSettings programSettings, 
             SerialThread serialThread, 
             AlarmThread alarmThread,
+            IApiService apiService,
             ILoggerFactory loggerFactory)
         {
             this.uri = $"ws://{programSettings.WebServerHost}:3001";
             this.serialThread = serialThread;
             this.alarmThread = alarmThread;
+            this.apiService = apiService;
 
             this.logger = loggerFactory.CreateLogger<WebSocketThread>();
         }
@@ -147,6 +154,26 @@ namespace VentilatorDaemon
                                 else if (name == "MT")
                                 {
                                     alarmThread.AlarmMuted = propertyValue > 0.0f;
+
+                                    // we are only allowed to mute for one minute
+                                    if (propertyValue > 0.0f)
+                                    {
+                                        muteResetCancellationTokenSource.Cancel();
+                                        muteResetCancellationTokenSource = new CancellationTokenSource();
+                                        var cancellationToken = muteResetCancellationTokenSource.Token;
+
+                                        _ = Task.Run(async () =>
+                                        {
+                                            await Task.Delay(60000);
+
+                                            if (!cancellationToken.IsCancellationRequested)
+                                            {
+                                                logger.LogInformation("Resetting the mute state to zero");
+                                                await this.apiService.SendSettingToServerAsync("MT", 0);
+                                            }
+                                            
+                                        }, muteResetCancellationTokenSource.Token);
+                                    }
                                 }
                                 else if (name == "ACTIVE" && propertyValue >= 0.9f && propertyValue < 1.1f) // see if float value is close to 1
                                 {
