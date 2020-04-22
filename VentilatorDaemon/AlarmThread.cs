@@ -1,4 +1,5 @@
 ﻿using Microsoft.Extensions.Logging;
+using MongoDB.Bson.IO;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -16,6 +17,11 @@ namespace VentilatorDaemon
         private object alarmModifierLock = new object();
         private readonly IApiService apiService;
         private readonly ILogger<AlarmThread> logger;
+
+        // we want to make sure every beep lasts at least 3 seconds
+        private DateTime lastBeepPlayed = DateTime.UtcNow.AddHours(-1);
+        // some alarms need to keep beeping once triggered until a manual reset
+        private bool shouldKeepBeepUntilReset = false;
 
         public AlarmThread(IApiService apiService,
             ILoggerFactory loggerFactory)
@@ -42,7 +48,14 @@ namespace VentilatorDaemon
                     {
                         // get the new alarms (aka the bits who became one)
                         var alarmToSend = changed & value;
-                        AlarmValuesToSend.Enqueue(alarmToSend);
+
+                        if (alarmToSend > 0)
+                        {
+                            logger.LogDebug("Alarm changed, we start a new beep now and send the new value to the server");
+                            AlarmValuesToSend.Enqueue(alarmToSend);
+
+                            lastBeepPlayed = DateTime.UtcNow;
+                        }
                     }
 
                     alarmValue = value;
@@ -61,19 +74,38 @@ namespace VentilatorDaemon
         {
             var previousPCValue = AlarmValue & 0x0000FFFF;
 
-            AlarmValue = (alarmBits << 16)  | previousPCValue;
+            AlarmValue = (alarmBits << 16) | previousPCValue;
         }
 
+        // todo: alarm can only be muted for one minute
         public bool AlarmMuted { get; set; } = false;
 
         private bool ShouldPlayAlarm
         {
-            get => alarmValue > 0 && !AlarmMuted;
+            get
+            {
+                if (AlarmMuted)
+                {
+                    return false;
+                }
+
+                bool shouldBeep = shouldKeepBeepUntilReset;
+
+                if (!shouldBeep)
+                {
+                    var timeSinceLastBeep = (DateTime.UtcNow - lastBeepPlayed).TotalSeconds;
+
+                    shouldBeep = timeSinceLastBeep < 3.5;
+                }
+
+                return shouldBeep | (alarmValue > 0);
+            }
         }
 
         public void ResetAlarm()
         {
             AlarmValue = 0;
+            shouldKeepBeepUntilReset = false;
         }
 
         public byte[] ComposeAlarmMessage()
@@ -82,13 +114,13 @@ namespace VentilatorDaemon
             // 1 to play alarm
             // 0 everything is ok
             uint alarmValueToSend = 0;
-                        
-            if (alarmValue > 0)
+
+            if (ShouldPlayAlarm)
             {
                 alarmValueToSend = 1;
             }
 
-            return string.Format("ALARM={0}", alarmValueToSend).ToASCIIBytes();            
+            return string.Format("ALARM={0}", alarmValueToSend).ToASCIIBytes();
         }
 
         public Task PlayAlarmSoundTask(CancellationToken cancellationToken)
@@ -113,6 +145,8 @@ namespace VentilatorDaemon
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
+                    // see if there are alarm values we haven't sent to the server yet
+                    // todo: we should also sent the timestamp of when the alarm was raised and use that on the server
                     try
                     {
                         uint alarmToSend = 0;

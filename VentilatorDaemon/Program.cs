@@ -28,7 +28,6 @@ namespace VentilatorDaemon
 
             var serviceProvider = new ServiceCollection()
                 .AddLogging(builder => builder.AddConsole().AddFilter(level => level >= LogLevel.Debug))
-                .AddSingleton<string>()
                 .AddSingleton<ProgramSettings>(new ProgramSettings()
                 {
                     DatabaseHost = mongoHost,
@@ -37,10 +36,10 @@ namespace VentilatorDaemon
                 })
                 .AddTransient<IApiService, ApiService>()
                 .AddTransient<IDbService, DbService>()
-                .AddTransient<AlarmThread>()
-                .AddTransient<SerialThread>()
-                .AddTransient<WebSocketThread>()
-                .AddTransient<ProcessingThread>()
+                .AddSingleton<AlarmThread>()
+                .AddSingleton<SerialThread>()
+                .AddSingleton<WebSocketThread>()
+                .AddSingleton<ProcessingThread>()
                 .BuildServiceProvider();
             logger = serviceProvider.GetService<ILoggerFactory>().CreateLogger<Program>();
 

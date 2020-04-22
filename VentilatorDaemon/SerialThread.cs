@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using VentilatorDaemon.Helpers.Console;
 using VentilatorDaemon.Helpers.Serial;
+using VentilatorDaemon.Models;
 using VentilatorDaemon.Services;
 
 namespace VentilatorDaemon
@@ -124,6 +125,8 @@ namespace VentilatorDaemon
                     waitingForAck.TryAdd(msgId, new SentSerialMessage(bytes, DateTime.UtcNow, messageAcknowledged));
                     // send message
                     serialPort.Write(bytesToSend, 0, bytesToSend.Length);
+
+                    logger.LogTrace(bytesToSend.ToASCIIString());
 
                     msgId++;
                 }
