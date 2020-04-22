@@ -128,13 +128,25 @@ namespace VentilatorDaemon
                         // are we active?
                         if (!(settings.ContainsKey("ACTIVE") && settings["ACTIVE"] > 1.0f))
                         {
-                            // make sure we stop playing the alarm
-                            alarmThread.ResetAlarm();
                             await Task.Delay(2000);
                             continue;
                         }
-
-                        // wait for approximately five full breathing cycles after a setting change
+                        else
+                        {
+                            if (!alarmThread.Active && settings.ContainsKey("RR"))
+                            {
+                                if ((DateTime.UtcNow - alarmThread.InactiveSince).TotalSeconds > 60.0f / settings["RR"] * 5.0f)
+                                {
+                                    // we have been inactive for 5 breathing cycles, check alarms again
+                                    alarmThread.Active = true;
+                                }
+                                else
+                                {
+                                    // we are still inactive after a start or settings change don't check alarms
+                                    continue;
+                                }
+                            }
+                        }
 
 
                         uint alarmBits = 0;

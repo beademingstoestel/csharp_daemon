@@ -148,6 +148,7 @@ namespace VentilatorDaemon
                                         serialThread.WriteData(bytes, (messageId) =>
                                         {
                                             serialThread.PlayBeep();
+                                            alarmThread.ResetAlarm();
                                             return Task.CompletedTask;
                                         });
                                     });
@@ -161,6 +162,8 @@ namespace VentilatorDaemon
                                         logger.LogInformation("Received setting from server: {0}={1}", name, propertyValue);
                                         var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", name, propertyValue.ToString("0.00")));
                                         serialThread.WriteData(bytes);
+
+                                        alarmThread.ResetAlarm();
                                     });
                                 }
 
@@ -174,6 +177,7 @@ namespace VentilatorDaemon
                                          serialThread.WriteData(bytes);
                                      });
                                 }
+                                alarmThread.SetInactive();
                             }
                         }
                     }

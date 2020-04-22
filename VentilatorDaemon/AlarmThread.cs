@@ -51,7 +51,7 @@ namespace VentilatorDaemon
 
                         if (alarmToSend > 0)
                         {
-                            logger.LogDebug("Alarm changed, we start a new beep now and send the new value to the server");
+                            logger.LogDebug("Alarm triggered, we start a new beep now and send the new value to the server");
                             AlarmValuesToSend.Enqueue(alarmToSend);
 
                             lastBeepPlayed = DateTime.UtcNow;
@@ -61,6 +61,22 @@ namespace VentilatorDaemon
                     alarmValue = value;
                 }
             }
+        }
+
+        public DateTime InactiveSince
+        {
+            get; set;
+        } = DateTime.MinValue;
+
+        public bool Active
+        {
+            get; set;
+        } = false;
+
+        public void SetInactive()
+        {
+            InactiveSince = DateTime.UtcNow;
+            Active = false;
         }
 
         public void SetPCAlarmBits(uint alarmBits)
@@ -84,6 +100,11 @@ namespace VentilatorDaemon
         {
             get
             {
+                if (!Active)
+                {
+                    return false;
+                }
+
                 if (AlarmMuted)
                 {
                     return false;
