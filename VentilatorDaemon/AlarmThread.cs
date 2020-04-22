@@ -42,11 +42,10 @@ namespace VentilatorDaemon
                 lock (alarmModifierLock)
                 {
                     // do we have changes?
-                    var changed = alarmValue ^ value;
-
-                    if (changed > 0)
+                    if (alarmValue != value)
                     {
                         // get the new alarms (aka the bits who became one)
+                        var changed = alarmValue ^ value;
                         var alarmToSend = changed & value;
 
                         if (alarmToSend > 0)
@@ -101,11 +100,6 @@ namespace VentilatorDaemon
             get
             {
                 if (!Active)
-                {
-                    return false;
-                }
-
-                if (AlarmMuted)
                 {
                     return false;
                 }

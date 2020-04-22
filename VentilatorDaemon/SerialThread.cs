@@ -162,6 +162,8 @@ namespace VentilatorDaemon
 
         public void HandleMessage(byte[] message, DateTime timeStamp)
         {
+            logger.LogTrace(message.ToASCIIString());
+
             this.lastMessageReceived = DateTime.Now;
             //calculate crc
             var crc = message.CalculateCrc(message.Length - 1);
