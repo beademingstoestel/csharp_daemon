@@ -8,56 +8,42 @@ using System.Threading;
 using System.Threading.Tasks;
 using VentilatorDaemon.Models.Db;
 using VentilatorDaemon.Models.Api;
+using VentilatorDaemon.Services;
+using Microsoft.Extensions.Logging;
 
 namespace VentilatorDaemon
 {
     public class ProcessingThread
     {
-        private readonly MongoClient client;
-        private readonly IMongoDatabase database;
         private readonly SerialThread serialThread;
         private readonly WebSocketThread webSocketThread;
         private readonly AlarmThread alarmThread;
+        private readonly IApiService apiService;
+        private readonly IDbService dbService;
+        private readonly ILogger<ProcessingThread> logger;
 
+        // values for the alarm bits
         private readonly uint BPM_TOO_LOW = 1;
         private readonly uint PEEP_NOT_OK = 16;
         private readonly uint PRESSURE_NOT_OK = 32;
         private readonly uint VOLUME_NOT_OK = 64;
         private readonly uint RESIDUAL_VOLUME_NOT_OK = 128;
+        private readonly uint ARDUINO_CONNECTION_NOT_OK = 256;
 
-        readonly FlurlClient flurlClient;
-
-        public ProcessingThread(SerialThread serialThread, WebSocketThread webSocketThread, AlarmThread alarmThread, string databaseHost, string webServerHost)
+        public ProcessingThread(SerialThread serialThread,
+            WebSocketThread webSocketThread,
+            AlarmThread alarmThread,
+            IApiService apiService,
+            IDbService dbService,
+            ILoggerFactory loggerFactory)
         {
-            flurlClient = new FlurlClient($"http://{webServerHost}:3001");
-            client = new MongoClient($"mongodb://{databaseHost}:27017/?connect=direct;replicaSet=rs0;readPreference=primaryPreferred");
-            database = client.GetDatabase("beademing");
             this.serialThread = serialThread;
             this.webSocketThread = webSocketThread;
             this.alarmThread = alarmThread;
-        }
+            this.apiService = apiService;
+            this.dbService = dbService;
 
-        private List<ValueEntry> GetDocuments(string collection, int number)
-        {
-            var builder = Builders<ValueEntry>.Filter;
-
-            return database.GetCollection<ValueEntry>(collection)
-                .Find<ValueEntry>(builder.Empty)
-                .SortByDescending(entry => entry.LoggedAt)
-                .Limit(number)
-                .ToList();
-
-        }
-
-        private List<ValueEntry> GetDocuments(string collection, DateTime since)
-        {
-            var builder = Builders<ValueEntry>.Filter;
-
-            return database.GetCollection<ValueEntry>(collection)
-                .Find<ValueEntry>(builder.Gt(e => e.LoggedAt, since))
-                .SortByDescending(entry => entry.LoggedAt)
-                .ToList();
-
+            this.logger = loggerFactory.CreateLogger<ProcessingThread>();
         }
 
         private double GetMaximum(List<ValueEntry> values, Func<ValueEntry, double> comparison, DateTime startDateTime, DateTime endDateTime)
@@ -148,11 +134,12 @@ namespace VentilatorDaemon
                             continue;
                         }
 
-                        // wait for five full breathing cycles after a setting change
+                        // wait for approximately five full breathing cycles after a setting change
+
 
                         uint alarmBits = 0;
 
-                        var values = GetDocuments("measured_values", DateTime.UtcNow.AddSeconds(-70));
+                        var values = dbService.GetDocuments("measured_values", DateTime.UtcNow.AddSeconds(-70));
 
                         if (values.Count == 0)
                         {
@@ -322,7 +309,12 @@ namespace VentilatorDaemon
                             //await serialThread.SendSettingToServer("breathingCycleStart", startBreathingCycle.Value.);
                         }
 
-                        alarmThread.AlarmValue = alarmBits;
+                        if (serialThread.ConnectionState != ConnectionState.Connected)
+                        {
+                            alarmBits |= ARDUINO_CONNECTION_NOT_OK;
+                        }
+
+                        alarmThread.SetPCAlarmBits(alarmBits);
 
                         
                         if (breathingCycles.Count > 1)
@@ -340,13 +332,11 @@ namespace VentilatorDaemon
                         }
 
 
-                        await flurlClient.Request("/api/calculated_values")
-                            .PutJsonAsync(calculatedValues);
+                        await apiService.SendCalculatedValuesToServerAsync(calculatedValues);
                     }
                     catch (Exception e)
                     {
-                        Console.WriteLine(e.Message);
-                        Console.WriteLine(e.StackTrace);
+                        logger.LogError(e, e.Message);
                     }
 
                     var timeSpent = (DateTime.Now - start).TotalMilliseconds;

@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace VentilatorDaemon
+namespace VentilatorDaemon.Helpers.WebSocket
 {
     // based on: https://gist.github.com/xamlmonkey/4737291
     public class WebSocketWrapper

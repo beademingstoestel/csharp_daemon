@@ -29,5 +29,32 @@ namespace VentilatorDaemon.Helpers.Serial
 
             return checksum;
         }
+
+        public static void ToConsole(this byte[] message, bool asHex = false)
+        {
+            if (!asHex)
+            {
+                System.Console.WriteLine(message.ToASCIIString());
+            }
+            else
+            {
+                System.Console.WriteLine(message.ToHexString());
+            }
+        }
+
+        public static string ToASCIIString(this byte[] message)
+        {
+            return ASCIIEncoding.ASCII.GetString(message);
+        }
+
+        public static string ToHexString(this byte[] message)
+        {
+            return BitConverter.ToString(message);
+        }
+
+        public static byte[] ToASCIIBytes(this string message)
+        {
+            return ASCIIEncoding.ASCII.GetBytes(message);
+        }
     }
 }

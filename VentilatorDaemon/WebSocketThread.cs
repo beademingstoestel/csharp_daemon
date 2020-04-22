@@ -5,6 +5,9 @@ using System.Net.WebSockets;
 using System.Threading.Tasks;
 using System.Threading;
 using Newtonsoft.Json.Linq;
+using VentilatorDaemon.Helpers.WebSocket;
+using VentilatorDaemon.Models;
+using Microsoft.Extensions.Logging;
 
 namespace VentilatorDaemon
 {
@@ -13,10 +16,10 @@ namespace VentilatorDaemon
         private string uri;
         private readonly SerialThread serialThread;
         private readonly AlarmThread alarmThread;
+        private readonly ILogger<WebSocketThread> logger;
         private WebSocketWrapper webSocketWrapper;
 
         private Dictionary<string, float> settings = new Dictionary<string, float>();
-
 
         private bool connected = false;
         private int id = 0;
@@ -43,16 +46,27 @@ namespace VentilatorDaemon
 
         private readonly string settingsPath = "/api/settings";
 
-        public WebSocketThread(string uri, SerialThread serialThread, AlarmThread alarmThread)
+        public WebSocketThread(ProgramSettings programSettings, 
+            SerialThread serialThread, 
+            AlarmThread alarmThread,
+            ILoggerFactory loggerFactory)
         {
-            this.uri = uri;
+            this.uri = $"ws://{programSettings.WebServerHost}:3001";
             this.serialThread = serialThread;
             this.alarmThread = alarmThread;
+
+            this.logger = loggerFactory.CreateLogger<WebSocketThread>();
         }
 
         public Dictionary<string, float> Settings
         {
             get => settings;
+        }
+
+        public DateTime LastSettingReceivedAt
+        {
+            private set;
+            get;
         }
 
         private async Task<WebSocketWrapper> ConnectWebSocket()
@@ -128,7 +142,7 @@ namespace VentilatorDaemon
                                     _ = Task.Run(() =>
                                     {
                                         // ACTIVE changed to 1, play short beep
-                                        Console.WriteLine("Change setting {0}={1}", name, propertyValue);
+                                        logger.LogInformation("Received setting from server: {0}={1}", name, propertyValue);
                                         var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", name, propertyValue.ToString("0.00")));
 
                                         serialThread.WriteData(bytes, (messageId) =>
@@ -140,9 +154,11 @@ namespace VentilatorDaemon
                                 }
                                 else if (name == "ACTIVE")
                                 {
+                                    LastSettingReceivedAt = DateTime.Now;
+
                                     _ = Task.Run(() =>
                                     {
-                                        Console.WriteLine("Change setting {0}={1}", name, propertyValue);
+                                        logger.LogInformation("Received setting from server: {0}={1}", name, propertyValue);
                                         var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", name, propertyValue.ToString("0.00")));
                                         serialThread.WriteData(bytes);
                                     });
@@ -150,9 +166,10 @@ namespace VentilatorDaemon
 
                                 if (settingsToSendThrough.Contains(name))
                                 {
+                                    LastSettingReceivedAt = DateTime.Now;
                                     _ = Task.Run(() =>
                                      {
-                                         Console.WriteLine("Change setting {0}={1}", name, propertyValue);
+                                         logger.LogInformation("Received setting from server: {0}={1}", name, propertyValue);
                                          var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", name, propertyValue.ToString("0.00")));
                                          serialThread.WriteData(bytes);
                                      });
@@ -175,7 +192,7 @@ namespace VentilatorDaemon
                 catch (Exception e)
                 {
                     // todo log error
-                    Console.WriteLine(e.Message);
+                    logger.LogError(e, e.Message);
                 }
 
                 while (!cancellationToken.IsCancellationRequested)
@@ -189,7 +206,7 @@ namespace VentilatorDaemon
                         catch (Exception e)
                         {
                             // todo log error
-                            Console.WriteLine(e.Message);
+                            logger.LogDebug(e.Message);
                         }
                     }
 

@@ -1,5 +1,4 @@
-﻿using Flurl.Http;
-using MongoDB.Driver;
+﻿using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -10,7 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using VentilatorDaemon.Helpers.Console;
 using VentilatorDaemon.Helpers.Serial;
-using VentilatorDaemon.Models.Db;
+using VentilatorDaemon.Services;
 
 namespace VentilatorDaemon
 {
@@ -25,19 +24,14 @@ namespace VentilatorDaemon
     {
         private SerialPort serialPort = new SerialPort();
         private Object lockObj = new Object();
-        private SemaphoreSlim saveSettingLock = new SemaphoreSlim(1, 1);
-        private SemaphoreSlim saveMongoLock = new SemaphoreSlim(1, 1);
+
         private byte msgId = 0;
         private bool alarmReceived = false;
         private Task alarmSendTask = Task.CompletedTask;
         private Task ackTask = Task.CompletedTask;
         private DateTime lastMessageReceived;
 
-        private readonly uint ARDUINO_CONNECTION_NOT_OK = 256;
-
         private CancellationTokenSource ackTokenSource = new CancellationTokenSource();
-
-        readonly FlurlClient flurlClient;
 
         private DateTime? arduinoTimeOffset = null;
         private long timeAtOffset = 0;
@@ -77,24 +71,27 @@ namespace VentilatorDaemon
         private byte[] alarm = ASCIIEncoding.ASCII.GetBytes("ALARM=");
         private byte[] measurement = new byte[] { 0x02, 0x01 };
 
-        private readonly MongoClient client;
-        private readonly IMongoDatabase database;
         private readonly AlarmThread alarmThread;
-
+        private readonly IApiService apiService;
+        private readonly IDbService dbService;
+        private readonly ILogger<SerialThread> logger;
         private ConcurrentDictionary<byte, SentSerialMessage> waitingForAck = new ConcurrentDictionary<byte, SentSerialMessage>();
         private bool dtrEnable = false;
 
-        public SerialThread(string databaseHost, string webServerHost, AlarmThread alarmThread)
+        public SerialThread(IDbService dbService,
+            IApiService apiService,
+            AlarmThread alarmThread,
+            ILoggerFactory loggerFactory)
         {
+            this.logger = loggerFactory.CreateLogger<SerialThread>();
+
             serialPort.BaudRate = 115200;
             serialPort.ReadTimeout = 1500;
             serialPort.WriteTimeout = 1500;
 
-            client = new MongoClient($"mongodb://{databaseHost}:27017/?connect=direct;replicaSet=rs0;readPreference=primaryPreferred");
-            flurlClient = new FlurlClient($"http://{webServerHost}:3001");
-            database = client.GetDatabase("beademing");
-
             this.alarmThread = alarmThread;
+            this.apiService = apiService;
+            this.dbService = dbService;
         }
 
         public ConnectionState ConnectionState { get; set; } = ConnectionState.SerialNotConnected;
@@ -160,82 +157,6 @@ namespace VentilatorDaemon
             //_ = player.Play(@"./assets/beep.wav");
         }
 
-        public async Task SendAlarmToServer(uint value)
-        {
-            try
-            {
-                Dictionary<string, uint> dict = new Dictionary<string, uint>();
-                dict.Add("value", value);
-
-                await flurlClient.Request("/api/alarms")
-                    .PutJsonAsync(dict);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Error while sending setting to server: {0}", e.Message);
-            }
-            finally
-            {
-            }
-        }
-
-        public async Task SendSettingToServer(string key, float value)
-        {
-            await saveSettingLock.WaitAsync();
-            try
-            {
-                Dictionary<string, float> dict = new Dictionary<string, float>();
-                dict.Add(key, value);
-
-                await flurlClient.Request("/api/settings")
-                    .PutJsonAsync(dict);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Error while sending setting to server: {0}", e.Message);
-            }
-            finally
-            {
-                saveSettingLock.Release();
-            }
-        }
-
-        public async Task SendMeasurementToMongo(string collection, 
-            DateTime timeStamp, 
-            double volume,
-            double pressure,
-            double targetPressure,
-            byte trigger,
-            double flow,
-            double breathsPerMinute)
-        {
-            await saveMongoLock.WaitAsync();
-            try
-            {
-                await database.GetCollection<ValueEntry>(collection).InsertOneAsync(new ValueEntry()
-                {
-                    Value = new MeasuredValues
-                    {
-                        Volume = volume,
-                        Pressure = pressure,
-                        TargetPressure = targetPressure,
-                        Trigger = trigger,
-                        Flow = flow,
-                        BreathsPerMinute = breathsPerMinute,
-                    },
-                    LoggedAt = timeStamp,
-                });
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Error while sending setting to server: {0}", e.Message);
-            }
-            finally
-            {
-                saveMongoLock.Release();
-            }
-        }
-
         public void HandleMessage(byte[] message, DateTime timeStamp)
         {
             this.lastMessageReceived = DateTime.Now;
@@ -267,14 +188,14 @@ namespace VentilatorDaemon
                 var messageId = message[message.Length - 3];
                 CreateAndSendAck(messageId);
 
-                var alarmString = ASCIIEncoding.ASCII.GetString(message);
+                var alarmString = message.ToASCIIString();
                 var tokens = alarmString.Split('=', StringSplitOptions.RemoveEmptyEntries);
 
                 uint newAlarmValue = 0;
                 if (uint.TryParse(tokens[1], out newAlarmValue))
                 {
-                    Console.WriteLine("Arduino sends alarmvalue: {0}", newAlarmValue);
-                    alarmThread.AlarmValue = newAlarmValue << 16;
+                    logger.LogDebug("Arduino sends alarmvalue: {0}", newAlarmValue);
+                    alarmThread.SetArduinoAlarmBits(newAlarmValue);
                 }
 
                 if (!alarmReceived)
@@ -287,13 +208,13 @@ namespace VentilatorDaemon
                         {
                             // send alarm ping
                             var bytes = alarmThread.ComposeAlarmMessage();
-                            Console.WriteLine("Send alarm {0} to arduino {1}", alarmThread.AlarmValue, ASCIIEncoding.ASCII.GetString(bytes));
+                            logger.LogDebug("Send alarm {0} to arduino {1}", alarmThread.AlarmValue, bytes.ToASCIIString());
                             WriteData(bytes);
 
                             await Task.Delay(500);
                         }
 
-                        Console.WriteLine("Stop alarm thread");
+                        logger.LogDebug("Stop alarm thread");
                     });
                 }
             }
@@ -310,20 +231,19 @@ namespace VentilatorDaemon
                         CreateAndSendAck(messageId);
 
                         //get value of the setting
-                        var settingString = ASCIIEncoding.ASCII.GetString(message);
+                        var settingString = message.ToASCIIString();
                         var tokens = settingString.Split('=', StringSplitOptions.RemoveEmptyEntries);
 
                         var floatValue = 0.0f;
 
                         if (float.TryParse(tokens[1], out floatValue))
                         {
-                            Console.WriteLine(ASCIIEncoding.ASCII.GetString(message));
-                            Console.WriteLine("Received setting from arduino with value {0} {1}", setting.Item1, floatValue);
+                            logger.LogInformation("Received setting from arduino with value {0} {1}", setting.Item1, floatValue);
 
                             // send to server
                             _ = Task.Run(async () =>
                              {
-                                 await SendSettingToServer(setting.Item1, floatValue);
+                                 await apiService.SendSettingToServerAsync(setting.Item1, floatValue);
                              });
                         }
 
@@ -353,18 +273,24 @@ namespace VentilatorDaemon
                                 timeAtOffset = time;
                             }
 
-                            _ = SendMeasurementToMongo("measured_values",
-                                arduinoTimeOffset.Value.AddMilliseconds(time),
-                                volume,
-                                pressure,
-                                targetPressure,
-                                trigger,
-                                flow,
-                                bpm);
+                            try
+                            {
+                                _= dbService.SendMeasurementValuesToMongoAsync(arduinoTimeOffset.Value.AddMilliseconds(time),
+                                    volume,
+                                    pressure,
+                                    targetPressure,
+                                    trigger,
+                                    flow,
+                                    bpm);
+                            }
+                            catch (Exception e)
+                            {
+                                logger.LogError("Error while saving measurements to mongo");
+                            }
                         }
                         catch (Exception e)
                         {
-                            Console.WriteLine(e);
+                            logger.LogError(e, e.Message);
                         }
                     }
                 }
@@ -440,7 +366,7 @@ namespace VentilatorDaemon
 
                                     if ((DateTime.Now - this.lastMessageReceived).TotalSeconds > 20)
                                     {
-                                        Console.WriteLine("No communication with the arduino could be established, send reset signal");
+                                        logger.LogInformation("No communication with the arduino could be established, send reset signal");
 
                                         if (Environment.OSVersion.Platform == PlatformID.Unix)
                                         {
@@ -521,7 +447,7 @@ namespace VentilatorDaemon
 
                                     if (i + 2 < bufferOffset)
                                     {
-                                        // we have to add the three start bytes (start, type and length) to the message length`
+                                        // we have to add the three start bytes (start, type and length) to the message length
                                         expectedMessageLength = (byte)(buffer[i + 2] + 3);
                                     }
                                 }
@@ -529,7 +455,7 @@ namespace VentilatorDaemon
                                 lengthMessage++;
                             }
 
-                            // we found a message further in the buffer, shift the buffer
+                            // we found at least one message further in the buffer, shift the buffer
                             if (startMessage > 0)
                             {
                                 bufferOffset -= startMessage;
@@ -550,14 +476,10 @@ namespace VentilatorDaemon
                     }
                     catch (Exception e)
                     {
-                        // todo log error
-                        Console.WriteLine(e.Message);
+                        logger.LogError(e, e.Message);
                         await Task.Delay(1000);
                         ConnectionState = ConnectionState.SerialNotConnected;
                         alarmReceived = false;
-
-
-                        alarmThread.AlarmValue = ARDUINO_CONNECTION_NOT_OK;
                     }
                 }
 
@@ -572,7 +494,7 @@ namespace VentilatorDaemon
         {
             serialPort.PortName = portName;
 
-            Console.WriteLine("Starting communication with {0}", serialPort.PortName);
+            logger.LogInformation("Starting communication with {0}", serialPort.PortName);
         }
 
         public void SetPortName()
@@ -584,7 +506,7 @@ namespace VentilatorDaemon
             while(SerialPort.GetPortNames().Count() == 0)
             {
                 Thread.Sleep(1000);
-                Console.WriteLine("Waiting for serial ports to become available");
+                logger.LogInformation("Waiting for serial ports to become available");
             }
 
             foreach (string s in SerialPort.GetPortNames())

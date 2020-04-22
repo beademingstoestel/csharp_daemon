@@ -1,18 +1,24 @@
 ﻿using Flurl.Http;
 using Flurl.Http.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
-using System.Net;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using VentilatorDaemon.Models;
+using VentilatorDaemon.Services;
+using VentilatorDaemon.Services.Implementations;
 
 namespace VentilatorDaemon
 {
     class Program
     {
+        private static ILogger logger;
+
         static async Task Main(string[] args)
         {
             // get environment variables
@@ -20,20 +26,40 @@ namespace VentilatorDaemon
             var interfaceHost = Environment.GetEnvironmentVariable("INTERFACE_HOST") ?? "localhost";
             var serialPort = Environment.GetEnvironmentVariable("SERIAL_PORT");
 
+            var serviceProvider = new ServiceCollection()
+                .AddLogging(builder => builder.AddConsole().AddFilter(level => level >= LogLevel.Debug))
+                .AddSingleton<string>()
+                .AddSingleton<ProgramSettings>(new ProgramSettings()
+                {
+                    DatabaseHost = mongoHost,
+                    SerialPort = serialPort,
+                    WebServerHost = interfaceHost,
+                })
+                .AddTransient<IApiService, ApiService>()
+                .AddTransient<IDbService, DbService>()
+                .AddTransient<AlarmThread>()
+                .AddTransient<SerialThread>()
+                .AddTransient<WebSocketThread>()
+                .AddTransient<ProcessingThread>()
+                .BuildServiceProvider();
+            logger = serviceProvider.GetService<ILoggerFactory>().CreateLogger<Program>();
+
+
             //wait for mongo to be available
             await CheckMongoAvailibility(mongoHost);
             await CheckWebServerAvailibility(interfaceHost);
 
             GeneralConfiguration();
 
-            Console.WriteLine("Starting daemon");
+            logger.LogInformation("Starting daemon");
             CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
             var cancellationToken = cancellationTokenSource.Token;
 
-            AlarmThread alarmThread = new AlarmThread();
-            SerialThread serialThread = new SerialThread(mongoHost, interfaceHost, alarmThread);
-            WebSocketThread webSocketThread = new WebSocketThread($"ws://{interfaceHost}:3001", serialThread, alarmThread);
-            ProcessingThread processingThread = new ProcessingThread(serialThread, webSocketThread, alarmThread, mongoHost, interfaceHost);
+
+            AlarmThread alarmThread = serviceProvider.GetService<AlarmThread>();
+            SerialThread serialThread = serviceProvider.GetService<SerialThread>();
+            WebSocketThread webSocketThread = serviceProvider.GetService<WebSocketThread>();
+            ProcessingThread processingThread = serviceProvider.GetService<ProcessingThread>();
 
             if (string.IsNullOrEmpty(serialPort))
             {
@@ -50,8 +76,9 @@ namespace VentilatorDaemon
             var processingTask = processingThread.Start(cancellationToken);
 
             Task.WaitAll(webSocketTask, serialTask, processingTask, alarmTask);
-
-            Console.WriteLine("Daemon finished");
+            
+            // as there is currently no way to cancel the tokens, we should never get here
+            logger.LogInformation("Daemon finished");
         }
 
         static void GeneralConfiguration()
@@ -86,7 +113,7 @@ namespace VentilatorDaemon
                 }
                 catch(Exception e)
                 {
-                    Console.WriteLine("Got an error waiting for mongo");
+                    logger.LogInformation("Waiting for the mongo server to become available");
                     await Task.Delay(1000);
                 }
             } 
@@ -113,7 +140,7 @@ namespace VentilatorDaemon
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("Got an error waiting for webserver");
+                    logger.LogInformation("Waiting for the webserver to become available");
                     await Task.Delay(1000);
                 }
             }
