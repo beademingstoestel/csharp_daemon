@@ -8,6 +8,7 @@ using Newtonsoft.Json.Linq;
 using VentilatorDaemon.Helpers.WebSocket;
 using VentilatorDaemon.Models;
 using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace VentilatorDaemon
 {
@@ -19,29 +20,39 @@ namespace VentilatorDaemon
         private readonly ILogger<WebSocketThread> logger;
         private WebSocketWrapper webSocketWrapper;
 
-        private Dictionary<string, float> settings = new Dictionary<string, float>();
-
         private bool connected = false;
         private int id = 0;
 
-        private List<string> settingsToSendThrough = new List<string>()
+        private struct SettingToSend
         {
-            "RR",   // Respiratory rate
-            "VT",   // Tidal Volume
-            "PK",   // Peak Pressure
-            "TS",   // Breath Trigger Threshold
-            "IE",   // Inspiration/Expiration (N for 1/N)
-            "PP",   // PEEP (positive end expiratory pressure)
-            "ADPK", // Allowed deviation Peak Pressure
-            "ADVT", // Allowed deviation Tidal Volume
-            "ADPP", // Allowed deviation PEEP
-            "MODE",  // Machine Mode (Volume Control / Pressure Control)
+            public SettingToSend(string settingKey, bool causesAlarmInactivity)
+            {
+                SettingKey = settingKey;
+                CausesAlarmInactivity = causesAlarmInactivity;
+            }
+
+            public string SettingKey { get; set; }
+            public bool CausesAlarmInactivity { get; set; }
+        }
+
+        private List<SettingToSend> settingsToSendThrough = new List<SettingToSend>()
+        {
+            new SettingToSend("RR", true),   // Respiratory rate
+            new SettingToSend("VT", true),   // Tidal Volume
+            new SettingToSend("PK", true),   // Peak Pressure
+            new SettingToSend("TS", true),   // Breath Trigger Threshold
+            new SettingToSend("IE", true),   // Inspiration/Expiration (N for 1/N)
+            new SettingToSend("PP", true),   // PEEP (positive end expiratory pressure)
+            new SettingToSend("ADPK", true), // Allowed deviation Peak Pressure
+            new SettingToSend("ADVT", true), // Allowed deviation Tidal Volume
+            new SettingToSend("ADPP", true), // Allowed deviation PEEP
+            new SettingToSend("MODE", false),  // Machine Mode (Volume Control / Pressure Control)
             //"ACTIVE",  // Machine on / off, do not send through automatically, we want to monitor ack
-            "PS", // support pressure
-            "RP", // ramp time
-            "TP", // trigger pressure
-            "MT", // mute
-            "FW", // firmware version
+            new SettingToSend("PS", false), // support pressure
+            new SettingToSend("RP", true), // ramp time
+            new SettingToSend("TP", true), // trigger pressure
+            new SettingToSend("MT", false), // mute
+            new SettingToSend("FW", false), // firmware version
         };
 
         private readonly string settingsPath = "/api/settings";
@@ -60,8 +71,8 @@ namespace VentilatorDaemon
 
         public Dictionary<string, float> Settings
         {
-            get => settings;
-        }
+            get;
+        } = new Dictionary<string, float>();
 
         public DateTime LastSettingReceivedAt
         {
@@ -127,7 +138,7 @@ namespace VentilatorDaemon
                             {
                                 var name = property.Name;
                                 var propertyValue = property.Value.ToObject<float>();
-                                this.settings[name] = propertyValue;
+                                this.Settings[name] = propertyValue;
 
                                 if (name == "RA")
                                 {
@@ -149,6 +160,7 @@ namespace VentilatorDaemon
                                         {
                                             serialThread.PlayBeep();
                                             alarmThread.ResetAlarm();
+                                            alarmThread.SetInactive();
                                             return Task.CompletedTask;
                                         });
                                     });
@@ -164,10 +176,11 @@ namespace VentilatorDaemon
                                         serialThread.WriteData(bytes);
 
                                         alarmThread.ResetAlarm();
+                                        alarmThread.SetInactive();
                                     });
                                 }
 
-                                if (settingsToSendThrough.Contains(name))
+                                if (settingsToSendThrough.Any(s => s.SettingKey == name))
                                 {
                                     LastSettingReceivedAt = DateTime.Now;
                                     _ = Task.Run(() =>
@@ -177,7 +190,6 @@ namespace VentilatorDaemon
                                          serialThread.WriteData(bytes);
                                      });
                                 }
-                                alarmThread.SetInactive();
                             }
                         }
                     }

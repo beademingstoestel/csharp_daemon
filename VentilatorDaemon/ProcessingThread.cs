@@ -184,6 +184,11 @@ namespace VentilatorDaemon
 
                             DateTime exhalemoment = targetPressureExhale.LoggedAt.AddMilliseconds(-40);
 
+                            if (targetPressureExhale == null)
+                            {
+                                continue;
+                            }
+
                             var breathingCycleDuration = (endBreathingCycle - startBreathingCycle).TotalSeconds;
                             var bpm = 60.0 / breathingCycleDuration;
 
