@@ -22,15 +22,12 @@ namespace VentilatorDaemon.Services.Implementations
             this.logger = loggerFactory.CreateLogger<ApiService>();
         }
 
-        public async Task SendAlarmToServerAsync(uint value)
+        public async Task SendAlarmToServerAsync(AlarmEvent alarmEvent)
         {
             try
             {
-                Dictionary<string, uint> dict = new Dictionary<string, uint>();
-                dict.Add("value", value);
-
                 await flurlClient.Request("/api/alarms")
-                    .PutJsonAsync(dict);
+                    .PutJsonAsync(alarmEvent);
             }
             catch (Exception e)
             {

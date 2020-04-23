@@ -199,7 +199,7 @@ namespace VentilatorDaemon
                 uint newAlarmValue = 0;
                 if (uint.TryParse(tokens[1], out newAlarmValue))
                 {
-                    logger.LogDebug("Arduino sends alarmvalue: {0}", newAlarmValue);
+                    logger.LogTrace("Arduino sends alarmvalue: {0}", newAlarmValue);
                     alarmThread.SetArduinoAlarmBits(newAlarmValue);
                 }
 
@@ -213,7 +213,7 @@ namespace VentilatorDaemon
                         {
                             // send alarm ping
                             var bytes = alarmThread.ComposeAlarmMessage();
-                            logger.LogDebug("Send alarm {0} to arduino {1}", alarmThread.AlarmValue, bytes.ToASCIIString());
+                            logger.LogTrace("Send alarm {0} to arduino {1}", alarmThread.AlarmValue, bytes.ToASCIIString());
                             WriteData(bytes);
 
                             await Task.Delay(500);

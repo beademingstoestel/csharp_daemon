@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using VentilatorDaemon.Helpers.Serial;
+using VentilatorDaemon.Models.Api;
 using VentilatorDaemon.Services;
 
 namespace VentilatorDaemon
@@ -30,7 +31,7 @@ namespace VentilatorDaemon
             this.logger = loggerFactory.CreateLogger<AlarmThread>();
         }
 
-        public ConcurrentQueue<uint> AlarmValuesToSend { get; private set; } = new ConcurrentQueue<uint>();
+        public ConcurrentQueue<AlarmEvent> AlarmValuesToSend { get; private set; } = new ConcurrentQueue<AlarmEvent>();
 
         // Highest 16 bits are reserved for arduino
         // the lower 16 bits are for the pc
@@ -46,15 +47,27 @@ namespace VentilatorDaemon
                     {
                         // get the new alarms (aka the bits who became one)
                         var changed = alarmValue ^ value;
-                        var alarmToSend = changed & value;
+                        var raisedAlarms = changed & value;
+                        var resolvedAlarms = changed & ~value;
+                        
 
-                        if (alarmToSend > 0)
+                        if (raisedAlarms > 0)
                         {
-                            logger.LogDebug("Alarm triggered, we start a new beep now and send the new value to the server");
-                            AlarmValuesToSend.Enqueue(alarmToSend);
+                            logger.LogInformation("New alarms have been triggered, a beep should be played if not already playing");
 
                             lastBeepPlayed = DateTime.UtcNow;
                         }
+                        else
+                        {
+                            logger.LogInformation("All alarms have been resolved");
+                        }
+
+                        AlarmValuesToSend.Enqueue(new AlarmEvent()
+                        {
+                            RaisedAlarms = raisedAlarms,
+                            ResolvedAlarms = resolvedAlarms,
+                            Value = value,
+                        });
                     }
 
                     alarmValue = value;
@@ -164,7 +177,7 @@ namespace VentilatorDaemon
                     // todo: we should also sent the timestamp of when the alarm was raised and use that on the server
                     try
                     {
-                        uint alarmToSend = 0;
+                        AlarmEvent alarmToSend = null;
 
                         if (AlarmValuesToSend.TryPeek(out alarmToSend))
                         {

@@ -8,7 +8,7 @@ namespace VentilatorDaemon.Services
 {
     public interface IApiService
     {
-        Task SendAlarmToServerAsync(uint value);
+        Task SendAlarmToServerAsync(AlarmEvent alarmEvent);
         Task SendSettingToServerAsync(string key, float value);
         Task SendCalculatedValuesToServerAsync(CalculatedValues calculatedValues);
     }

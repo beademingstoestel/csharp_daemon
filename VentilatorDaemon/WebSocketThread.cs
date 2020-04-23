@@ -28,7 +28,7 @@ namespace VentilatorDaemon
         private bool connected = false;
         private int id = 0;
 
-        private struct SettingToSend
+        private class SettingToSend
         {
             public SettingToSend(string settingKey, bool causesAlarmInactivity)
             {
@@ -185,6 +185,7 @@ namespace VentilatorDaemon
 
                                         serialThread.WriteData(bytes, (messageId) =>
                                         {
+                                            logger.LogDebug("The machine should have played a beep after receiving active 1");
                                             serialThread.PlayBeep();
                                             alarmThread.ResetAlarm();
                                             alarmThread.SetInactive();
@@ -207,7 +208,8 @@ namespace VentilatorDaemon
                                     });
                                 }
 
-                                if (settingsToSendThrough.Any(s => s.SettingKey == name))
+                                var setting = settingsToSendThrough.FirstOrDefault(s => s.SettingKey == name);
+                                if (setting != null)
                                 {
                                     LastSettingReceivedAt = DateTime.Now;
                                     _ = Task.Run(() =>
@@ -216,6 +218,11 @@ namespace VentilatorDaemon
                                          var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", name, propertyValue.ToString("0.00")));
                                          serialThread.WriteData(bytes);
                                      });
+
+                                    if (setting.CausesAlarmInactivity)
+                                    {
+                                        alarmThread.SetInactive();
+                                    }
                                 }
                             }
                         }
