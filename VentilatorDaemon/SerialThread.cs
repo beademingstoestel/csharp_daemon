@@ -264,6 +264,7 @@ namespace VentilatorDaemon
                         // 0x02 0x01 {byte message length} {byte trigger} {two bytes V} {two bytes P} {two bytes TP} {two bytes BPM} {two bytes FLOW} {4 bytes time} {CRC byte}
                         try
                         {
+                            // todo: is time wrapping on the arduino a problem?
                             var trigger = message[3];
                             var volume = BitConverter.ToInt16(message, 4) / 10.0;
                             var pressure = BitConverter.ToInt16(message, 6) / 100.0;
@@ -281,6 +282,7 @@ namespace VentilatorDaemon
                             try
                             {
                                 _= dbService.SendMeasurementValuesToMongoAsync(arduinoTimeOffset.Value.AddMilliseconds(time),
+                                    time,
                                     volume,
                                     pressure,
                                     targetPressure,

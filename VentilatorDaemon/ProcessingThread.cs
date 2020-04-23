@@ -46,38 +46,38 @@ namespace VentilatorDaemon
             this.logger = loggerFactory.CreateLogger<ProcessingThread>();
         }
 
-        private double GetMaximum(List<ValueEntry> values, Func<ValueEntry, double> comparison, DateTime startDateTime, DateTime endDateTime)
+        private double GetMaximum(List<ValueEntry> values, Func<ValueEntry, double> comparison, long startDateTime, long endDateTime)
         {
             return values
-                .Where(v => v.LoggedAt >= startDateTime && v.LoggedAt <= endDateTime)
+                .Where(v => v.Value.ArduinoTime >= startDateTime && v.Value.ArduinoTime <= endDateTime)
                 .Max(v => comparison(v));
         }
 
-        private double GetMinimum(List<ValueEntry> values, Func<ValueEntry, double> comparison, DateTime startDateTime, DateTime endDateTime)
+        private double GetMinimum(List<ValueEntry> values, Func<ValueEntry, double> comparison, long startDateTime, long endDateTime)
         {
             return values
-                .Where(v => v.LoggedAt >= startDateTime && v.LoggedAt <= endDateTime)
+                .Where(v => v.Value.ArduinoTime >= startDateTime && v.Value.ArduinoTime <= endDateTime)
                 .Min(v => comparison(v));
         }
 
-        private List<Tuple<DateTime, DateTime>> GetBreathingCyclesFromTargetPressure(List<ValueEntry> values, DateTime maxDateTime)
+        private List<Tuple<long, long>> GetBreathingCyclesFromTargetPressure(List<ValueEntry> values, long maxDateTime)
         {
-            List<Tuple<DateTime, DateTime>> breathingCycles = new List<Tuple<DateTime, DateTime>>();
-            DateTime? startBreathingCycle = null;
-            DateTime? endBreathingCycle = null;
+            List<Tuple<long, long>> breathingCycles = new List<Tuple<long, long>>();
+            long? startBreathingCycle = null;
+            long? endBreathingCycle = null;
             var lastValue = 0.0;
             var firstLoop = true;
             var goingUp = false;
-            var previousLoggedAt = DateTime.Now;
+            long previousLoggedAt = 0;
 
             foreach (var valueEntry in values)
             {
-                if (valueEntry.LoggedAt <= maxDateTime)
+                if (valueEntry.Value.ArduinoTime <= maxDateTime)
                 {
                     if (firstLoop)
                     {
                         lastValue = valueEntry.Value.TargetPressure;
-                        previousLoggedAt = valueEntry.LoggedAt;
+                        previousLoggedAt = valueEntry.Value.ArduinoTime;
                         firstLoop = false;
                     }
                     else
@@ -103,7 +103,7 @@ namespace VentilatorDaemon
                         }
 
                         lastValue = valueEntry.Value.TargetPressure;
-                        previousLoggedAt = valueEntry.LoggedAt;
+                        previousLoggedAt = valueEntry.Value.ArduinoTime;
                     }
                 }
             }
@@ -160,36 +160,36 @@ namespace VentilatorDaemon
                             continue;
                         }
 
-                        // find the lowest datetime value that we all have
-                        var maxDateTime = values.First().LoggedAt;
+                        // find the lowest datetime value that we have
+                        var maxDateTime = values.First().Value.ArduinoTime;
 
                         values.Reverse();
 
                         // check breaths per minute
-                        List<Tuple<DateTime, DateTime>> breathingCycles = GetBreathingCyclesFromTargetPressure(values, maxDateTime);
+                        List<Tuple<long, long>> breathingCycles = GetBreathingCyclesFromTargetPressure(values, maxDateTime);
 
                         // do we have a full cycle
                         if (breathingCycles.Count > 0)
                         {
-                            DateTime startBreathingCycle = breathingCycles.Last().Item1;
-                            DateTime endBreathingCycle = breathingCycles.Last().Item2;
+                            long startBreathingCycle = breathingCycles.Last().Item1;
+                            long endBreathingCycle = breathingCycles.Last().Item2;
 
                             var minValTargetPressure = GetMinimum(values, (valueEntry) => valueEntry.Value.TargetPressure, startBreathingCycle, endBreathingCycle);
 
                             var maxValTargetPressure = GetMaximum(values, (valueEntry) => valueEntry.Value.TargetPressure, startBreathingCycle, endBreathingCycle);
 
                             var targetPressureExhale = values
-                                .Where(v => v.LoggedAt > startBreathingCycle && v.LoggedAt <= endBreathingCycle && v.Value.TargetPressure == minValTargetPressure)
+                                .Where(v => v.Value.ArduinoTime > startBreathingCycle && v.Value.ArduinoTime <= endBreathingCycle && v.Value.TargetPressure == minValTargetPressure)
                                 .FirstOrDefault();
 
-                            DateTime exhalemoment = targetPressureExhale.LoggedAt.AddMilliseconds(-40);
+                            long exhalemoment = targetPressureExhale.Value.ArduinoTime - 40;
 
                             if (targetPressureExhale == null)
                             {
                                 continue;
                             }
 
-                            var breathingCycleDuration = (endBreathingCycle - startBreathingCycle).TotalSeconds;
+                            var breathingCycleDuration = (endBreathingCycle - startBreathingCycle) / 1000.0;
                             var bpm = 60.0 / breathingCycleDuration;
 
                             calculatedValues.RespatoryRate = bpm;
@@ -202,8 +202,8 @@ namespace VentilatorDaemon
                                 }
                             }
 
-                            var inhaleTime = (exhalemoment - startBreathingCycle).TotalSeconds;
-                            var exhaleTime = (endBreathingCycle - exhalemoment).TotalSeconds;
+                            var inhaleTime = (exhalemoment - startBreathingCycle) / 1000.0;
+                            var exhaleTime = (endBreathingCycle - exhalemoment) / 1000.0;
 
                             calculatedValues.IE = inhaleTime / breathingCycleDuration;
 
@@ -219,7 +219,7 @@ namespace VentilatorDaemon
 
                             calculatedValues.TidalVolume = tidalVolume;
 
-                            var residualVolume = GetMinimum(values, (valueEntry) => valueEntry.Value.Volume, exhalemoment, endBreathingCycle.AddMilliseconds(-80));
+                            var residualVolume = GetMinimum(values, (valueEntry) => valueEntry.Value.Volume, exhalemoment, endBreathingCycle - 80);
 
                             if (Math.Abs(residualVolume) > 50)
                             {
@@ -227,10 +227,10 @@ namespace VentilatorDaemon
                             }
 
                             var peakPressureMoment = values
-                               .Where(v => v.LoggedAt >= startBreathingCycle && v.LoggedAt <= exhalemoment)
+                               .Where(v => v.Value.ArduinoTime >= startBreathingCycle && v.Value.ArduinoTime <= exhalemoment)
                                .Aggregate((i1, i2) => i1.Value.Pressure > i2.Value.Pressure ? i1 : i2);
 
-                            var plateauMinimumPressure = GetMinimum(values, (valueEntry) => valueEntry.Value.Pressure, peakPressureMoment.LoggedAt, exhalemoment);
+                            var plateauMinimumPressure = GetMinimum(values, (valueEntry) => valueEntry.Value.Pressure, peakPressureMoment.Value.ArduinoTime, exhalemoment);
 
                             if (settings.ContainsKey("ADPK"))
                             {
@@ -245,11 +245,11 @@ namespace VentilatorDaemon
 
                             //did we have a trigger within this cycle?
                             var triggerMoment = values
-                                .FirstOrDefault(p => p.LoggedAt >= exhalemoment && p.LoggedAt <= endBreathingCycle && p.Value.Trigger > 0.0f);
+                                .FirstOrDefault(p => p.Value.ArduinoTime >= exhalemoment && p.Value.ArduinoTime <= endBreathingCycle && p.Value.Trigger > 0.0f);
                             var endPeep = endBreathingCycle;
                             if (triggerMoment != null)
                             {
-                                endPeep = triggerMoment.LoggedAt.AddMilliseconds(-50);
+                                endPeep = triggerMoment.Value.ArduinoTime - 50;
                             }
 
                             if (settings.ContainsKey("PP") && settings.ContainsKey("ADPP"))
@@ -261,8 +261,8 @@ namespace VentilatorDaemon
                                 bool foundPlateau = false;
 
                                 var pressureExhaleValues = values
-                                    .Where(v => v.LoggedAt >= exhalemoment.AddMilliseconds(100) && v.LoggedAt <= endPeep)
-                                    .OrderByDescending(v => v.LoggedAt)
+                                    .Where(v => v.Value.ArduinoTime >= exhalemoment + 100 && v.Value.ArduinoTime <= endPeep)
+                                    .OrderByDescending(v => v.Value.ArduinoTime)
                                     .ToList();
 
                                 for (int i = 0; i < pressureExhaleValues.Count - 2; i += 2)
@@ -287,7 +287,7 @@ namespace VentilatorDaemon
 
                                     if (previousPoint != null)
                                     {
-                                        var gradient = (previousPoint.Value.Pressure - valueEntry.Value.Pressure) / ((float)(previousPoint.LoggedAt - valueEntry.LoggedAt).TotalSeconds);
+                                        var gradient = (previousPoint.Value.Pressure - valueEntry.Value.Pressure) / ((float)(previousPoint.Value.ArduinoTime - valueEntry.Value.ArduinoTime) / 1000.0f);
 
                                         if (gradient > -1.0f)
                                         {
@@ -339,13 +339,13 @@ namespace VentilatorDaemon
                             foreach (var breathingCycle in breathingCycles)
                             {
                                 var tidalVolume = values
-                                    .Where(v => v.LoggedAt >= breathingCycle.Item1 && v.LoggedAt <= breathingCycle.Item2)
+                                    .Where(v => v.Value.ArduinoTime >= breathingCycle.Item1 && v.Value.ArduinoTime <= breathingCycle.Item2)
                                     .Max(v => v.Value.Volume);
 
                                 calculatedValues.VolumePerMinute += tidalVolume / 1000.0;
                             }
 
-                            calculatedValues.VolumePerMinute = calculatedValues.VolumePerMinute / (breathingCycles.Last().Item2 - breathingCycles.First().Item1).TotalSeconds * 60.0;
+                            calculatedValues.VolumePerMinute = calculatedValues.VolumePerMinute / ((breathingCycles.Last().Item2 - breathingCycles.First().Item1) / 1000.0) * 60.0;
                         }
 
 

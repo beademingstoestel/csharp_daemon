@@ -9,6 +9,7 @@ namespace VentilatorDaemon.Services
     public interface IDbService
     {
         Task SendMeasurementValuesToMongoAsync(DateTime timeStamp,
+            long arduinoTime,
             double volume,
             double pressure,
             double targetPressure,

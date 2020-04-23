@@ -48,6 +48,7 @@ namespace VentilatorDaemon.Services.Implementations
         }
 
         public async Task SendMeasurementValuesToMongoAsync(DateTime timeStamp,
+            long arduinoTime,
             double volume,
             double pressure,
             double targetPressure,
@@ -65,6 +66,7 @@ namespace VentilatorDaemon.Services.Implementations
                     Trigger = trigger,
                     Flow = flow,
                     BreathsPerMinute = breathsPerMinute,
+                    ArduinoTime = arduinoTime,
                 },
                 LoggedAt = timeStamp,
             });
