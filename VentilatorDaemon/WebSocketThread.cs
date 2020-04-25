@@ -58,6 +58,7 @@ namespace VentilatorDaemon
             new SettingToSend("TP", true), // trigger pressure
             new SettingToSend("MT", false), // mute
             new SettingToSend("FW", false), // firmware version
+            new SettingToSend("FIO2", true), // oxygen level
         };
 
         private readonly string settingsPath = "/api/settings";

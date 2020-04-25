@@ -261,7 +261,7 @@ namespace VentilatorDaemon
                 {
                     if (message.StartsWith(measurement))
                     {
-                        // 0x02 0x01 {byte message length} {byte trigger} {two bytes V} {two bytes P} {two bytes TP} {two bytes BPM} {two bytes FLOW} {4 bytes time} {CRC byte}
+                        // 0x02 0x01 {byte message length} {byte trigger} {two bytes V} {two bytes P} {two bytes TP} {two bytes BPM} {two bytes FLOW} {two bytes FIO2} {4 bytes time} {CRC byte}
                         try
                         {
                             // todo: is time wrapping on the arduino a problem?
@@ -271,7 +271,8 @@ namespace VentilatorDaemon
                             var targetPressure = BitConverter.ToInt16(message, 8) / 100.0;
                             var bpm = BitConverter.ToInt16(message, 10) / 100.0;
                             var flow = BitConverter.ToInt16(message, 12) / 100.0;
-                            var time = BitConverter.ToUInt32(message, 14);                            
+                            var fio2 = BitConverter.ToInt16(message, 14) / 100.0;
+                            var time = BitConverter.ToUInt32(message, 16);                            
 
                             if (!arduinoTimeOffset.HasValue || time - timeAtOffset > 120e3)
                             {
@@ -288,6 +289,7 @@ namespace VentilatorDaemon
                                     targetPressure,
                                     trigger,
                                     flow,
+                                    fio2,
                                     bpm);
                             }
                             catch (Exception e)

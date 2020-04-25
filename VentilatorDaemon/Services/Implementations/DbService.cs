@@ -54,6 +54,7 @@ namespace VentilatorDaemon.Services.Implementations
             double targetPressure,
             int trigger,
             double flow,
+            double fio2,
             double breathsPerMinute)
         {
             await database.GetCollection<ValueEntry>("measured_values").InsertOneAsync(new ValueEntry()
@@ -66,6 +67,7 @@ namespace VentilatorDaemon.Services.Implementations
                     Trigger = trigger,
                     Flow = flow,
                     BreathsPerMinute = breathsPerMinute,
+                    FiO2 = fio2,
                     ArduinoTime = arduinoTime,
                 },
                 LoggedAt = timeStamp,

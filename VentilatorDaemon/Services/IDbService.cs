@@ -15,6 +15,7 @@ namespace VentilatorDaemon.Services
             double targetPressure,
             int trigger,
             double flow,
+            double fio2,
             double breathsPerMinute);
 
         List<ValueEntry> GetDocuments(string collection, int number);

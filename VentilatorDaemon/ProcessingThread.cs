@@ -140,11 +140,6 @@ namespace VentilatorDaemon
                                     // we have been inactive for 5 breathing cycles, check alarms again
                                     alarmThread.Active = true;
                                 }
-                                else
-                                {
-                                    // we are still inactive after a start or settings change don't check alarms
-                                    continue;
-                                }
                             }
                         }
 
@@ -331,7 +326,10 @@ namespace VentilatorDaemon
                             alarmBits |= ARDUINO_CONNECTION_NOT_OK;
                         }
 
-                        alarmThread.SetPCAlarmBits(alarmBits);
+                        if (alarmThread.Active)
+                        {
+                            alarmThread.SetPCAlarmBits(alarmBits);
+                        }
 
                         
                         if (breathingCycles.Count > 1)

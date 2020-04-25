@@ -20,6 +20,9 @@ namespace VentilatorDaemon.Models.Db
         public int Trigger { get; set; }
         [BsonElement("breathsPerMinute")]
         public double BreathsPerMinute { get; set; }
+
+        [BsonElement("fiO2")]
+        public double FiO2 { get; set; }
         public long ArduinoTime { get; set; }
     }
 }
