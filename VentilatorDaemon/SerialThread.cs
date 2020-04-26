@@ -48,25 +48,7 @@ namespace VentilatorDaemon
             Tuple.Create("cpu_values", ASCIIEncoding.ASCII.GetBytes("CPU=")),   // CPU usage
         };
 
-        public List<Tuple<string, byte[]>> settingIds = new List<Tuple<string, byte[]>>()
-        {
-            Tuple.Create("RR", ASCIIEncoding.ASCII.GetBytes("RR=")),  // Breaths per minute
-            Tuple.Create("VT", ASCIIEncoding.ASCII.GetBytes("VT=")),   // Tidal Volume
-            Tuple.Create("PK", ASCIIEncoding.ASCII.GetBytes("PK=")),   // Peak Pressure
-            Tuple.Create("TS", ASCIIEncoding.ASCII.GetBytes("TS=")),   // Breath Trigger Threshold
-            Tuple.Create("IE", ASCIIEncoding.ASCII.GetBytes("IE=")),   // Inspiration/Expiration (N for 1/N)
-            Tuple.Create("PP", ASCIIEncoding.ASCII.GetBytes("PP=")),   // PEEP (positive end expiratory pressure)
-            Tuple.Create("ADPK", ASCIIEncoding.ASCII.GetBytes("ADPK=")), // Allowed deviation Peak Pressure
-            Tuple.Create("ADVT", ASCIIEncoding.ASCII.GetBytes("ADVT=")), // Allowed deviation Tidal Volume
-            Tuple.Create("ADPP", ASCIIEncoding.ASCII.GetBytes("ADPP=")), // Allowed deviation PEEP
-            Tuple.Create("MODE", ASCIIEncoding.ASCII.GetBytes("MODE=")),  // Machine Mode (Volume Control / Pressure Control)
-            Tuple.Create("ACTIVE", ASCIIEncoding.ASCII.GetBytes("ACTIVE=")),  // Machine on / off
-            Tuple.Create("PS", ASCIIEncoding.ASCII.GetBytes("PS=")), // support pressure
-            Tuple.Create("RP", ASCIIEncoding.ASCII.GetBytes("RP=")), // ramp time
-            Tuple.Create("TP", ASCIIEncoding.ASCII.GetBytes("TP=")), // trigger pressure
-            Tuple.Create("MT", ASCIIEncoding.ASCII.GetBytes("MT=")), // mute
-            Tuple.Create("FW", ASCIIEncoding.ASCII.GetBytes("FW=")), // firmware version
-        };
+        public List<IVentilatorSetting> settingIds = VentilatorSettingsFactory.GetVentilatorSettings();
 
         private byte[] ack = ASCIIEncoding.ASCII.GetBytes("ACK=");
         private byte[] alarm = ASCIIEncoding.ASCII.GetBytes("ALARM=");
@@ -228,7 +210,7 @@ namespace VentilatorDaemon
                 var handled = false;
                 foreach (var setting in settingIds)
                 {
-                    if (message.StartsWith(setting.Item2))
+                    if (message.StartsWith(setting.SerialStart))
                     {
                         var messageId = message[message.Length - 3];
 
@@ -243,15 +225,15 @@ namespace VentilatorDaemon
 
                         if (float.TryParse(tokens[1], out floatValue))
                         {
-                            logger.LogInformation("Received setting from arduino with value {0} {1}", setting.Item1, floatValue);
+                            logger.LogInformation("Received setting from arduino with value {0} {1}", setting.SettingKey, floatValue);
 
                             // send to server
                             _ = Task.Run(async () =>
-                             {
-                                 await apiService.SendSettingToServerAsync(setting.Item1, floatValue);
-                             });
+                                {
+                                    await apiService.SendSettingToServerAsync(setting.SettingKey, Convert.ChangeType(floatValue, setting.SettingType));
+                                });
                         }
-
+                        
                         handled = true;
                         break;
                     }

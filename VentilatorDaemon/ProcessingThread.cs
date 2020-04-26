@@ -24,6 +24,8 @@ namespace VentilatorDaemon
 
         // values for the alarm bits
         private readonly uint BPM_TOO_LOW = 1;
+        private readonly uint PRESSURE_TOO_LOW = 2;
+        private readonly uint VOLUME_TOO_LOW = 4;
         private readonly uint PEEP_NOT_OK = 16;
         private readonly uint PRESSURE_NOT_OK = 32;
         private readonly uint VOLUME_NOT_OK = 64;
@@ -113,7 +115,6 @@ namespace VentilatorDaemon
 
         public Task Start(CancellationToken cancellationToken)
         {
-            CalculatedValues calculatedValues = new CalculatedValues();
 
             return Task.Run(async () =>
             {
@@ -123,10 +124,10 @@ namespace VentilatorDaemon
                     try
                     {
                         var settings = webSocketThread.Settings;
-                        calculatedValues.ResetValues();
+                        CalculatedValues calculatedValues = new CalculatedValues();
 
                         // are we active?
-                        if (!(settings.ContainsKey("ACTIVE") && settings["ACTIVE"] > 1.0f))
+                        if (!(settings.ContainsKey("ACTIVE") && (int)settings["ACTIVE"] > 1))
                         {
                             await Task.Delay(2000);
                             continue;
@@ -135,7 +136,7 @@ namespace VentilatorDaemon
                         {
                             if (!alarmThread.Active && settings.ContainsKey("RR"))
                             {
-                                if ((DateTime.UtcNow - alarmThread.InactiveSince).TotalSeconds > 60.0f / settings["RR"] * 5.0f)
+                                if ((DateTime.UtcNow - alarmThread.InactiveSince).TotalSeconds > 60.0f / (float)settings["RR"] * 5.0f)
                                 {
                                     // we have been inactive for 5 breathing cycles, check alarms again
                                     alarmThread.Active = true;
@@ -191,7 +192,7 @@ namespace VentilatorDaemon
 
                             if (settings.ContainsKey("RR"))
                             {
-                                if (bpm <= settings["RR"] - 1.0)
+                                if (bpm <= (float)settings["RR"] - 1.0f)
                                 {
                                     alarmBits |= BPM_TOO_LOW;
                                 }
@@ -206,7 +207,7 @@ namespace VentilatorDaemon
 
                             if (settings.ContainsKey("VT") && settings.ContainsKey("ADVT"))
                             {
-                                if (Math.Abs(tidalVolume - settings["VT"]) > settings["ADVT"])
+                                if (Math.Abs(tidalVolume - (double)settings["VT"]) > (double)settings["ADVT"])
                                 {
                                     alarmBits |= VOLUME_NOT_OK;
                                 }
@@ -221,6 +222,8 @@ namespace VentilatorDaemon
                                 alarmBits |= RESIDUAL_VOLUME_NOT_OK;
                             }
 
+                            calculatedValues.ResidualVolume = residualVolume;
+
                             var peakPressureMoment = values
                                .Where(v => v.Value.ArduinoTime >= startBreathingCycle && v.Value.ArduinoTime <= exhalemoment)
                                .Aggregate((i1, i2) => i1.Value.Pressure > i2.Value.Pressure ? i1 : i2);
@@ -229,13 +232,14 @@ namespace VentilatorDaemon
 
                             if (settings.ContainsKey("ADPK"))
                             {
-                                if (!(Math.Abs(peakPressureMoment.Value.Pressure - maxValTargetPressure) < settings["ADPK"]
-                                    && Math.Abs(plateauMinimumPressure - maxValTargetPressure) < settings["ADPK"]))
+                                if (!(Math.Abs(peakPressureMoment.Value.Pressure - maxValTargetPressure) < (double)settings["ADPK"]
+                                    && Math.Abs(plateauMinimumPressure - maxValTargetPressure) < (double)settings["ADPK"]))
                                 {
                                     alarmBits |= PRESSURE_NOT_OK;
                                 }
                             }
 
+                            calculatedValues.PeakPressure = peakPressureMoment.Value.Pressure;
                             calculatedValues.PressurePlateau = plateauMinimumPressure;
 
                             //did we have a trigger within this cycle?
@@ -267,7 +271,7 @@ namespace VentilatorDaemon
                                     // if last value is above PEEP, assume everything is ok
                                     if (firstPeepPressureIteration)
                                     {
-                                        if (valueEntry.Value.Pressure > settings["PP"] - settings["ADPP"])
+                                        if (valueEntry.Value.Pressure > (double)settings["PP"] - (double)settings["ADPP"])
                                         {
                                             foundPlateau = true;
                                             break;
@@ -290,7 +294,7 @@ namespace VentilatorDaemon
 
                                             if (plateauCounter == 3)
                                             {
-                                                if (valueEntry.Value.Pressure > settings["PP"] - settings["ADPP"])
+                                                if (valueEntry.Value.Pressure > (double)settings["PP"] - (double)settings["ADPP"])
                                                 {
                                                     foundPlateau = true;
                                                     break;
@@ -328,7 +332,7 @@ namespace VentilatorDaemon
 
                         if (alarmThread.Active)
                         {
-                            alarmThread.SetPCAlarmBits(alarmBits);
+                            alarmThread.SetPCAlarmBits(alarmBits, settings, calculatedValues);
                         }
 
                         

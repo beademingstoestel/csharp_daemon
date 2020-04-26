@@ -11,6 +11,8 @@ using Microsoft.Extensions.Logging;
 using System.Linq;
 using System.Data.SqlTypes;
 using VentilatorDaemon.Services;
+using System.Reflection.Metadata;
+using MongoDB.Driver;
 
 namespace VentilatorDaemon
 {
@@ -28,38 +30,7 @@ namespace VentilatorDaemon
         private bool connected = false;
         private int id = 0;
 
-        private class SettingToSend
-        {
-            public SettingToSend(string settingKey, bool causesAlarmInactivity)
-            {
-                SettingKey = settingKey;
-                CausesAlarmInactivity = causesAlarmInactivity;
-            }
-
-            public string SettingKey { get; set; }
-            public bool CausesAlarmInactivity { get; set; }
-        }
-
-        private List<SettingToSend> settingsToSendThrough = new List<SettingToSend>()
-        {
-            new SettingToSend("RR", true),   // Respiratory rate
-            new SettingToSend("VT", true),   // Tidal Volume
-            new SettingToSend("PK", true),   // Peak Pressure
-            new SettingToSend("TS", true),   // Breath Trigger Threshold
-            new SettingToSend("IE", true),   // Inspiration/Expiration (N for 1/N)
-            new SettingToSend("PP", true),   // PEEP (positive end expiratory pressure)
-            new SettingToSend("ADPK", true), // Allowed deviation Peak Pressure
-            new SettingToSend("ADVT", true), // Allowed deviation Tidal Volume
-            new SettingToSend("ADPP", true), // Allowed deviation PEEP
-            new SettingToSend("MODE", false),  // Machine Mode (Volume Control / Pressure Control)
-            //"ACTIVE",  // Machine on / off, do not send through automatically, we want to monitor ack
-            new SettingToSend("PS", false), // support pressure
-            new SettingToSend("RP", true), // ramp time
-            new SettingToSend("TP", true), // trigger pressure
-            new SettingToSend("MT", false), // mute
-            new SettingToSend("FW", false), // firmware version
-            new SettingToSend("FIO2", true), // oxygen level
-        };
+        private List<IVentilatorSetting> settingsToSendThrough = VentilatorSettingsFactory.GetVentilatorSettings();
 
         private readonly string settingsPath = "/api/settings";
 
@@ -77,10 +48,10 @@ namespace VentilatorDaemon
             this.logger = loggerFactory.CreateLogger<WebSocketThread>();
         }
 
-        public Dictionary<string, float> Settings
+        public Dictionary<string, object> Settings
         {
             get;
-        } = new Dictionary<string, float>();
+        } = new Dictionary<string, object>();
 
         public DateTime LastSettingReceivedAt
         {
@@ -144,20 +115,25 @@ namespace VentilatorDaemon
 
                             if (property != null)
                             {
+                                var handled = false;
                                 var name = property.Name;
-                                var propertyValue = property.Value.ToObject<float>();
+                                var setting = settingsToSendThrough.FirstOrDefault(s => s.SettingKey == name);
+
+                                object propertyValue = property.Value.ToObject(setting.SettingType);
                                 this.Settings[name] = propertyValue;
 
                                 if (name == "RA")
                                 {
                                     alarmThread.ResetAlarm();
+                                    // we don't need to send this to arduino
+                                    handled = true;
                                 }
                                 else if (name == "MT")
                                 {
-                                    alarmThread.AlarmMuted = propertyValue > 0.0f;
+                                    alarmThread.AlarmMuted = (int)propertyValue > 0;
 
                                     // we are only allowed to mute for one minute
-                                    if (propertyValue > 0.0f)
+                                    if ((int)propertyValue > 0)
                                     {
                                         muteResetCancellationTokenSource.Cancel();
                                         muteResetCancellationTokenSource = new CancellationTokenSource();
@@ -176,13 +152,13 @@ namespace VentilatorDaemon
                                         }, muteResetCancellationTokenSource.Token);
                                     }
                                 }
-                                else if (name == "ACTIVE" && propertyValue >= 0.9f && propertyValue < 1.1f) // see if float value is close to 1
+                                else if (name == "ACTIVE" && (int)propertyValue == 1)
                                 {
                                     _ = Task.Run(() =>
                                     {
                                         // ACTIVE changed to 1, play short beep
                                         logger.LogInformation("Received setting from server: {0}={1}", name, propertyValue);
-                                        var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", name, propertyValue.ToString("0.00")));
+                                        var bytes = setting.ToBytes(propertyValue);
 
                                         serialThread.WriteData(bytes, (messageId) =>
                                         {
@@ -193,6 +169,8 @@ namespace VentilatorDaemon
                                             return Task.CompletedTask;
                                         });
                                     });
+
+                                    handled = true;
                                 }
                                 else if (name == "ACTIVE")
                                 {
@@ -201,28 +179,31 @@ namespace VentilatorDaemon
                                     _ = Task.Run(() =>
                                     {
                                         logger.LogInformation("Received setting from server: {0}={1}", name, propertyValue);
-                                        var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", name, propertyValue.ToString("0.00")));
+                                        var bytes = setting.ToBytes(propertyValue);
                                         serialThread.WriteData(bytes);
 
                                         alarmThread.ResetAlarm();
                                         alarmThread.SetInactive();
                                     });
+                                    handled = true;
                                 }
 
-                                var setting = settingsToSendThrough.FirstOrDefault(s => s.SettingKey == name);
-                                if (setting != null)
+                                if (!handled)
                                 {
-                                    LastSettingReceivedAt = DateTime.Now;
-                                    _ = Task.Run(() =>
-                                     {
-                                         logger.LogInformation("Received setting from server: {0}={1}", name, propertyValue);
-                                         var bytes = ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", name, propertyValue.ToString("0.00")));
-                                         serialThread.WriteData(bytes);
-                                     });
-
-                                    if (setting.CausesAlarmInactivity)
+                                    if (setting != null)
                                     {
-                                        alarmThread.SetInactive();
+                                        LastSettingReceivedAt = DateTime.Now;
+                                        _ = Task.Run(() =>
+                                         {
+                                             logger.LogInformation("Received setting from server: {0}={1}", name, propertyValue);
+                                             var bytes = setting.ToBytes(propertyValue);
+                                             serialThread.WriteData(bytes);
+                                         });
+
+                                        if (setting.CausesAlarmInactivity)
+                                        {
+                                            alarmThread.SetInactive();
+                                        }
                                     }
                                 }
                             }

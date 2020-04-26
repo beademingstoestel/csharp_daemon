@@ -50,11 +50,11 @@ namespace VentilatorDaemon.Services.Implementations
             }
         }
 
-        public async Task SendSettingToServerAsync(string key, float value)
+        public async Task SendSettingToServerAsync(string key, object value)
         {
             try
             {
-                Dictionary<string, float> dict = new Dictionary<string, float>();
+                Dictionary<string, object> dict = new Dictionary<string, object>();
                 dict.Add(key, value);
 
                 await flurlClient.Request("/api/settings")

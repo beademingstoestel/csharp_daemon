@@ -91,7 +91,7 @@ namespace VentilatorDaemon
             Active = false;
         }
 
-        public void SetPCAlarmBits(uint alarmBits)
+        public void SetPCAlarmBits(uint alarmBits, Dictionary<string, object> settings, CalculatedValues calculatedValues)
         {
             var previousArduinoValue = AlarmValue & 0xFFFF0000;
 
