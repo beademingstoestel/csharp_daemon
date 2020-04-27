@@ -21,5 +21,7 @@ namespace VentilatorDaemon.Models.Api
         public double PressurePlateau { get; set; }
         [JsonProperty("peakPressure")]
         public double PeakPressure { get; set; }
+        [JsonProperty("fiO2")]
+        public double FiO2 { get; set; }
     }
 }

@@ -38,7 +38,8 @@ namespace VentilatorDaemon.Models
                 new VentilatorSetting<float>("TP", true, true), // trigger pressure
                 new VentilatorSetting<int>("MT", false, true), // mute
                 new VentilatorSetting<float>("FW", false, false), // firmware version
-                new VentilatorSetting<float>("FIO2", true, true), // oxygen level
+                new VentilatorSetting<float>("FIO2", true, true), // oxygen level, 0.20 -> 1.0
+                new VentilatorSetting<float>("ADFIO2", true, true), // oxygen level, 0.20 -> 1.0
             };
         }
     }

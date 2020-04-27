@@ -31,6 +31,9 @@ namespace VentilatorDaemon
         private readonly uint VOLUME_NOT_OK = 64;
         private readonly uint RESIDUAL_VOLUME_NOT_OK = 128;
         private readonly uint ARDUINO_CONNECTION_NOT_OK = 256;
+        private readonly uint TIDAL_VOLUME_TOO_LOW_PC_MODE = 512; // in PC mode only
+        private readonly uint FIO2_TOO_LOW = 1024;
+        private readonly uint FIO2_TOO_HIGH = 2048;
 
         public ProcessingThread(SerialThread serialThread,
             WebSocketThread webSocketThread,
@@ -205,15 +208,37 @@ namespace VentilatorDaemon
 
                             var tidalVolume = GetMaximum(values, (valueEntry) => valueEntry.Value.Volume, startBreathingCycle, endBreathingCycle);
 
-                            if (settings.ContainsKey("VT") && settings.ContainsKey("ADVT"))
+                            calculatedValues.TidalVolume = tidalVolume;
+
+                            if (((int)settings["MODE"] & 4) > 0)
                             {
-                                if (Math.Abs(tidalVolume - (double)settings["VT"]) > (double)settings["ADVT"])
+                                // we are in volume limited mode
+                                if (settings.ContainsKey("VT") && settings.ContainsKey("ADVT"))
                                 {
-                                    alarmBits |= VOLUME_NOT_OK;
+                                    // todo: in future versions it might be easier to convert ADVT and ADPK to absolute values
+                                    var upperLimit = (double)settings["VT"] + (double)settings["ADVT"];
+                                    var lowerLimit = (double)settings["VT"] - (double)settings["ADVT"];
+                                    if (tidalVolume > upperLimit)
+                                    {
+                                        alarmBits |= VOLUME_NOT_OK;
+                                    }
+                                    else if (tidalVolume < lowerLimit)
+                                    {
+                                        alarmBits |= VOLUME_TOO_LOW;
+                                    }
                                 }
                             }
-
-                            calculatedValues.TidalVolume = tidalVolume;
+                            else
+                            {
+                                // pressure control without volume limiting, only check if tidalVolume is above ADVT
+                                if (settings.ContainsKey("ADVT"))
+                                {
+                                    if (tidalVolume < (double)settings["ADVT"])
+                                    {
+                                        alarmBits |= TIDAL_VOLUME_TOO_LOW_PC_MODE;
+                                    }
+                                }
+                            }
 
                             var residualVolume = GetMinimum(values, (valueEntry) => valueEntry.Value.Volume, exhalemoment, endBreathingCycle - 80);
 
@@ -232,19 +257,48 @@ namespace VentilatorDaemon
 
                             if (settings.ContainsKey("ADPK"))
                             {
-                                if (!(Math.Abs(peakPressureMoment.Value.Pressure - maxValTargetPressure) < (double)settings["ADPK"]
-                                    && Math.Abs(plateauMinimumPressure - maxValTargetPressure) < (double)settings["ADPK"]))
+                                var upperLimit = maxValTargetPressure + (double)settings["ADPK"];
+                                var lowerLimit = maxValTargetPressure - (double)settings["ADPK"];
+                                if (peakPressureMoment.Value.Pressure > upperLimit
+                                    || plateauMinimumPressure > upperLimit)
                                 {
                                     alarmBits |= PRESSURE_NOT_OK;
+                                }
+                                else if (peakPressureMoment.Value.Pressure < lowerLimit
+                                  || plateauMinimumPressure < lowerLimit)
+                                {
+                                    alarmBits |= PRESSURE_TOO_LOW;
                                 }
                             }
 
                             calculatedValues.PeakPressure = peakPressureMoment.Value.Pressure;
                             calculatedValues.PressurePlateau = plateauMinimumPressure;
 
-                            //did we have a trigger within this cycle?
+                            // check fio2 values in last cycle
+                            // get biggest FiO2 deviation
+                            if (settings.ContainsKey("FIO2") && settings.ContainsKey("ADFIO2"))
+                            {
+                                var upperLimit = (double)settings["FIO2"] + (double)settings["ADFIO2"];
+                                var lowerLimit = (double)settings["FIO2"] - (double)settings["ADFIO2"];
+
+
+                                var peakFio2moment = values
+                                    .Where(v => v.Value.FiO2 >= startBreathingCycle && v.Value.FiO2 <= exhalemoment)
+                                    .Aggregate((i1, i2) => Math.Abs(i1.Value.FiO2 - (double)settings["FIO2"]) > Math.Abs(i2.Value.FiO2 - (double)settings["FIO2"]) ? i1 : i2);
+
+                                if (peakFio2moment.Value.FiO2 > upperLimit)
+                                {
+                                    alarmBits |= FIO2_TOO_HIGH;
+                                }
+                                else if (peakFio2moment.Value.FiO2 < lowerLimit)
+                                {
+                                    alarmBits |= FIO2_TOO_LOW;
+                                }
+                            }
+
+                            // did we have a trigger within this cycle?
                             var triggerMoment = values
-                                .FirstOrDefault(p => p.Value.ArduinoTime >= exhalemoment && p.Value.ArduinoTime <= endBreathingCycle && p.Value.Trigger > 0.0f);
+                            .FirstOrDefault(p => p.Value.ArduinoTime >= exhalemoment && p.Value.ArduinoTime <= endBreathingCycle && p.Value.Trigger > 0.0f);
                             var endPeep = endBreathingCycle;
                             if (triggerMoment != null)
                             {
@@ -335,7 +389,7 @@ namespace VentilatorDaemon
                             alarmThread.SetPCAlarmBits(alarmBits, settings, calculatedValues);
                         }
 
-                        
+
                         if (breathingCycles.Count > 1)
                         {
                             foreach (var breathingCycle in breathingCycles)
