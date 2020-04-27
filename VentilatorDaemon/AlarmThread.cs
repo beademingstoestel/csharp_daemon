@@ -19,6 +19,9 @@ namespace VentilatorDaemon
         private readonly IApiService apiService;
         private readonly ILogger<AlarmThread> logger;
 
+        Dictionary<string, object> settings = null;
+        CalculatedValues calculatedValues;
+
         // we want to make sure every beep lasts at least 3 seconds
         private DateTime lastBeepPlayed = DateTime.UtcNow.AddHours(-1);
         // some alarms need to keep beeping once triggered until a manual reset
@@ -67,6 +70,8 @@ namespace VentilatorDaemon
                             RaisedAlarms = raisedAlarms,
                             ResolvedAlarms = resolvedAlarms,
                             Value = value,
+                            CalculatedValues = calculatedValues,
+                            Settings = settings,
                         });
                     }
 
@@ -93,6 +98,9 @@ namespace VentilatorDaemon
 
         public void SetPCAlarmBits(uint alarmBits, Dictionary<string, object> settings, CalculatedValues calculatedValues)
         {
+            this.settings = new Dictionary<string, object>(settings);
+            this.calculatedValues = calculatedValues;
+
             var previousArduinoValue = AlarmValue & 0xFFFF0000;
 
             AlarmValue = previousArduinoValue | alarmBits;

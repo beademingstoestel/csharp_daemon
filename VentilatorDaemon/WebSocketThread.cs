@@ -34,8 +34,8 @@ namespace VentilatorDaemon
 
         private readonly string settingsPath = "/api/settings";
 
-        public WebSocketThread(ProgramSettings programSettings, 
-            SerialThread serialThread, 
+        public WebSocketThread(ProgramSettings programSettings,
+            SerialThread serialThread,
             AlarmThread alarmThread,
             IApiService apiService,
             ILoggerFactory loggerFactory)
@@ -119,78 +119,76 @@ namespace VentilatorDaemon
                                 var name = property.Name;
                                 var setting = settingsToSendThrough.FirstOrDefault(s => s.SettingKey == name);
 
-                                object propertyValue = property.Value.ToObject(setting.SettingType);
-                                this.Settings[name] = propertyValue;
-
-                                if (name == "RA")
+                                if (setting != null)
                                 {
-                                    alarmThread.ResetAlarm();
-                                    // we don't need to send this to arduino
-                                    handled = true;
-                                }
-                                else if (name == "MT")
-                                {
-                                    alarmThread.AlarmMuted = (int)propertyValue > 0;
+                                    object propertyValue = property.Value.ToObject(setting.SettingType);
+                                    this.Settings[name] = propertyValue;
 
-                                    // we are only allowed to mute for one minute
-                                    if ((int)propertyValue > 0)
+                                    if (name == "RA")
                                     {
-                                        muteResetCancellationTokenSource.Cancel();
-                                        muteResetCancellationTokenSource = new CancellationTokenSource();
-                                        var cancellationToken = muteResetCancellationTokenSource.Token;
-
-                                        _ = Task.Run(async () =>
-                                        {
-                                            await Task.Delay(60000);
-
-                                            if (!cancellationToken.IsCancellationRequested)
-                                            {
-                                                logger.LogInformation("Resetting the mute state to zero");
-                                                await this.apiService.SendSettingToServerAsync("MT", 0);
-                                            }
-                                            
-                                        }, muteResetCancellationTokenSource.Token);
+                                        alarmThread.ResetAlarm();
                                     }
-                                }
-                                else if (name == "ACTIVE" && (int)propertyValue == 1)
-                                {
-                                    _ = Task.Run(() =>
+                                    else if (name == "MT")
                                     {
-                                        // ACTIVE changed to 1, play short beep
-                                        logger.LogInformation("Received setting from server: {0}={1}", name, propertyValue);
-                                        var bytes = setting.ToBytes(propertyValue);
+                                        alarmThread.AlarmMuted = (int)propertyValue > 0;
 
-                                        serialThread.WriteData(bytes, (messageId) =>
+                                        // we are only allowed to mute for one minute
+                                        if ((int)propertyValue > 0)
                                         {
-                                            logger.LogDebug("The machine should have played a beep after receiving active 1");
-                                            serialThread.PlayBeep();
+                                            muteResetCancellationTokenSource.Cancel();
+                                            muteResetCancellationTokenSource = new CancellationTokenSource();
+                                            var cancellationToken = muteResetCancellationTokenSource.Token;
+
+                                            _ = Task.Run(async () =>
+                                            {
+                                                await Task.Delay(60000);
+
+                                                if (!cancellationToken.IsCancellationRequested)
+                                                {
+                                                    logger.LogInformation("Resetting the mute state to zero");
+                                                    await this.apiService.SendSettingToServerAsync("MT", 0);
+                                                }
+
+                                            }, muteResetCancellationTokenSource.Token);
+                                        }
+                                    }
+                                    else if (name == "ACTIVE" && (int)propertyValue == 1)
+                                    {
+                                        _ = Task.Run(() =>
+                                        {
+                                            // ACTIVE changed to 1, play short beep
+                                            logger.LogInformation("Received setting from server: {0}={1}", name, propertyValue);
+                                            var bytes = setting.ToBytes(propertyValue);
+
+                                            serialThread.WriteData(bytes, (messageId) =>
+                                            {
+                                                logger.LogDebug("The machine should have played a beep after receiving active 1");
+                                                serialThread.PlayBeep();
+                                                alarmThread.ResetAlarm();
+                                                alarmThread.SetInactive();
+                                                return Task.CompletedTask;
+                                            });
+                                        });
+
+                                        handled = true;
+                                    }
+                                    else if (name == "ACTIVE")
+                                    {
+                                        LastSettingReceivedAt = DateTime.Now;
+
+                                        _ = Task.Run(() =>
+                                        {
+                                            logger.LogInformation("Received setting from server: {0}={1}", name, propertyValue);
+                                            var bytes = setting.ToBytes(propertyValue);
+                                            serialThread.WriteData(bytes);
+
                                             alarmThread.ResetAlarm();
                                             alarmThread.SetInactive();
-                                            return Task.CompletedTask;
                                         });
-                                    });
+                                        handled = true;
+                                    }
 
-                                    handled = true;
-                                }
-                                else if (name == "ACTIVE")
-                                {
-                                    LastSettingReceivedAt = DateTime.Now;
-
-                                    _ = Task.Run(() =>
-                                    {
-                                        logger.LogInformation("Received setting from server: {0}={1}", name, propertyValue);
-                                        var bytes = setting.ToBytes(propertyValue);
-                                        serialThread.WriteData(bytes);
-
-                                        alarmThread.ResetAlarm();
-                                        alarmThread.SetInactive();
-                                    });
-                                    handled = true;
-                                }
-
-                                if (!handled)
-                                {
-                                    if (setting != null)
+                                    if (!handled && setting.SendToArduino)
                                     {
                                         LastSettingReceivedAt = DateTime.Now;
                                         _ = Task.Run(() =>
@@ -205,9 +203,9 @@ namespace VentilatorDaemon
                                             alarmThread.SetInactive();
                                         }
                                     }
-                                }
-                            }
-                        }
+                                } // end if setting != null
+                            } // end if property != null
+                        } // end foreach
                     }
                 }
             }
@@ -223,8 +221,8 @@ namespace VentilatorDaemon
                 }
                 catch (Exception e)
                 {
-                    // todo log error
-                    logger.LogError(e, e.Message);
+                        // todo log error
+                        logger.LogError(e, e.Message);
                 }
 
                 while (!cancellationToken.IsCancellationRequested)
@@ -237,8 +235,8 @@ namespace VentilatorDaemon
                         }
                         catch (Exception e)
                         {
-                            // todo log error
-                            logger.LogDebug(e.Message);
+                                // todo log error
+                                logger.LogDebug(e.Message);
                         }
                     }
 

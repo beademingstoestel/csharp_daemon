@@ -13,5 +13,11 @@ namespace VentilatorDaemon.Models.Api
         public uint ResolvedAlarms { get; set; }
         [JsonProperty("value")]
         public uint Value { get; set; }
+
+        [JsonProperty("settings")]
+        public Dictionary<string, object> Settings { get; set; }
+
+        [JsonProperty("calculatedValues")]
+        public CalculatedValues CalculatedValues { get; set; }
     }
 }

@@ -11,6 +11,7 @@ namespace VentilatorDaemon.Models
         Type SettingType { get; }
         public byte[] SerialStart { get; }
         bool CausesAlarmInactivity { get; set; }
+        public bool SendToArduino { get; set; }
         byte[] ToBytes(object value);
     }
 
@@ -20,38 +21,41 @@ namespace VentilatorDaemon.Models
         {
             return new List<IVentilatorSetting>()
             {
-                new VentilatorSetting<int>("RR", true),   // Respiratory rate
-                new VentilatorSetting<int>("RA", true),   // Respiratory rate
-                new VentilatorSetting<int>("VT", true),   // Tidal Volume
-                new VentilatorSetting<int>("PK", true),   // Peak Pressure
-                new VentilatorSetting<float>("TS", true),   // Breath Trigger Threshold
-                new VentilatorSetting<float>("IE", true),   // Inspiration/Expiration (N for 1/N)
-                new VentilatorSetting<int>("PP", true),   // PEEP (positive end expiratory pressure)
-                new VentilatorSetting<int>("ADPK", true), // Allowed deviation Peak Pressure
-                new VentilatorSetting<int>("ADVT", true), // Allowed deviation Tidal Volume
-                new VentilatorSetting<int>("ADPP", true), // Allowed deviation PEEP
-                new VentilatorSetting<int>("MODE", true),  // Machine Mode (Volume Control / Pressure Control)
-                new VentilatorSetting<int>("ACTIVE", true),  // Machine on / off
-                new VentilatorSetting<int>("PS", false), // support pressure
-                new VentilatorSetting<float>("RP", true), // ramp time
-                new VentilatorSetting<float>("TP", true), // trigger pressure
-                new VentilatorSetting<int>("MT", false), // mute
-                new VentilatorSetting<float>("FW", false), // firmware version
-                new VentilatorSetting<float>("FIO2", true), // oxygen level
+                new VentilatorSetting<int>("RR", true, true),   // Respiratory rate
+                new VentilatorSetting<int>("RA", true, true),   // Reset alarm
+                new VentilatorSetting<int>("VT", true, true),   // Tidal Volume
+                new VentilatorSetting<int>("PK", true, true),   // Peak Pressure
+                new VentilatorSetting<float>("TS", true, true),   // Breath Trigger Threshold
+                new VentilatorSetting<float>("IE", true, true),   // Inspiration/Expiration (N for 1/N)
+                new VentilatorSetting<int>("PP", true, true),   // PEEP (positive end expiratory pressure)
+                new VentilatorSetting<int>("ADPK", true, true), // Allowed deviation Peak Pressure
+                new VentilatorSetting<int>("ADVT", true, true), // Allowed deviation Tidal Volume
+                new VentilatorSetting<int>("ADPP", true, true), // Allowed deviation PEEP
+                new VentilatorSetting<int>("MODE", true, true),  // Machine Mode (Volume Control / Pressure Control)
+                new VentilatorSetting<int>("ACTIVE", true, true),  // Machine on / off
+                new VentilatorSetting<int>("PS", false, true), // support pressure
+                new VentilatorSetting<float>("RP", true, true), // ramp time
+                new VentilatorSetting<float>("TP", true, true), // trigger pressure
+                new VentilatorSetting<int>("MT", false, true), // mute
+                new VentilatorSetting<float>("FW", false, false), // firmware version
+                new VentilatorSetting<float>("FIO2", true, true), // oxygen level
             };
         }
     }
 
     public class VentilatorSetting<T>: IVentilatorSetting
     {
-        public VentilatorSetting(string settingKey, bool causesAlarmInactivity)
+        public VentilatorSetting(string settingKey, bool causesAlarmInactivity, bool sendToArduino)
         {
             SettingKey = settingKey;
             CausesAlarmInactivity = causesAlarmInactivity;
+            SendToArduino = sendToArduino;
         }
 
         public string SettingKey { get; set; }
         public bool CausesAlarmInactivity { get; set; }
+
+        public bool SendToArduino { get; set; }
 
         public byte[] SerialStart 
         { 
