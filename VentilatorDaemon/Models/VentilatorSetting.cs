@@ -25,8 +25,8 @@ namespace VentilatorDaemon.Models
                 new VentilatorSetting<int>("RA", true, true),   // Reset alarm
                 new VentilatorSetting<int>("VT", true, true),   // Tidal Volume
                 new VentilatorSetting<int>("PK", true, true),   // Peak Pressure
-                new VentilatorSetting<float>("TS", true, true),   // Breath Trigger Threshold
-                new VentilatorSetting<float>("IE", true, true),   // Inspiration/Expiration (N for 1/N)
+                new VentilatorSetting<double>("TS", true, true),   // Breath Trigger Threshold
+                new VentilatorSetting<double>("IE", true, true),   // Inspiration/Expiration (N for 1/N)
                 new VentilatorSetting<int>("PP", true, true),   // PEEP (positive end expiratory pressure)
                 new VentilatorSetting<int>("ADPK", true, true), // Allowed deviation Peak Pressure
                 new VentilatorSetting<int>("ADVT", true, true), // Allowed deviation Tidal Volume
@@ -34,12 +34,12 @@ namespace VentilatorDaemon.Models
                 new VentilatorSetting<int>("MODE", true, true),  // Machine Mode (Volume Control / Pressure Control)
                 new VentilatorSetting<int>("ACTIVE", true, true),  // Machine on / off
                 new VentilatorSetting<int>("PS", false, true), // support pressure
-                new VentilatorSetting<float>("RP", true, true), // ramp time
-                new VentilatorSetting<float>("TP", true, true), // trigger pressure
+                new VentilatorSetting<double>("RP", true, true), // ramp time
+                new VentilatorSetting<double>("TP", true, true), // trigger pressure
                 new VentilatorSetting<int>("MT", false, true), // mute
-                new VentilatorSetting<float>("FW", false, false), // firmware version
-                new VentilatorSetting<float>("FIO2", true, true), // oxygen level, 0.20 -> 1.0
-                new VentilatorSetting<float>("ADFIO2", true, true), // oxygen level, 0.20 -> 1.0
+                new VentilatorSetting<double>("FW", false, false), // firmware version
+                new VentilatorSetting<double>("FIO2", true, true), // oxygen level, 0.20 -> 1.0
+                new VentilatorSetting<double>("ADFIO2", true, true), // oxygen level, 0.20 -> 1.0
             };
         }
     }

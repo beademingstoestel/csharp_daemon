@@ -140,7 +140,7 @@ namespace VentilatorDaemon
                         {
                             if (!alarmThread.Active && settings.ContainsKey("RR"))
                             {
-                                if ((DateTime.UtcNow - alarmThread.InactiveSince).TotalSeconds > 60.0f / (float)settings["RR"] * 5.0f)
+                                if ((DateTime.UtcNow - alarmThread.InactiveSince).TotalSeconds > 60.0f / (int)settings["RR"] * 5.0f)
                                 {
                                     // we have been inactive for 5 breathing cycles, check alarms again
                                     alarmThread.Active = true;
@@ -196,7 +196,7 @@ namespace VentilatorDaemon
 
                             if (settings.ContainsKey("RR"))
                             {
-                                if (bpm <= (float)settings["RR"] - 1.0f)
+                                if (bpm <= (int)settings["RR"] - 1.0f)
                                 {
                                     alarmBits |= BPM_TOO_LOW;
                                 }
@@ -234,7 +234,7 @@ namespace VentilatorDaemon
                                 // pressure control without volume limiting, only check if tidalVolume is above ADVT
                                 if (settings.ContainsKey("ADVT"))
                                 {
-                                    if (tidalVolume < (double)settings["ADVT"])
+                                    if (tidalVolume < (int)settings["ADVT"])
                                     {
                                         alarmBits |= TIDAL_VOLUME_TOO_LOW_PC_MODE;
                                     }
@@ -258,8 +258,8 @@ namespace VentilatorDaemon
 
                             if (settings.ContainsKey("ADPK"))
                             {
-                                var upperLimit = maxValTargetPressure + (double)settings["ADPK"];
-                                var lowerLimit = maxValTargetPressure - (double)settings["ADPK"];
+                                var upperLimit = maxValTargetPressure + (int)settings["ADPK"];
+                                var lowerLimit = maxValTargetPressure - (int)settings["ADPK"];
                                 if (peakPressureMoment.Value.Pressure > upperLimit
                                     || plateauMinimumPressure > upperLimit)
                                 {
@@ -284,7 +284,7 @@ namespace VentilatorDaemon
 
 
                                 var peakFio2moment = values
-                                    .Where(v => v.Value.FiO2 >= startBreathingCycle && v.Value.FiO2 <= exhalemoment)
+                                    .Where(v => v.Value.ArduinoTime >= startBreathingCycle && v.Value.ArduinoTime <= exhalemoment)
                                     .Aggregate((i1, i2) => Math.Abs(i1.Value.FiO2 - (double)settings["FIO2"]) > Math.Abs(i2.Value.FiO2 - (double)settings["FIO2"]) ? i1 : i2);
 
                                 if (peakFio2moment.Value.FiO2 > upperLimit)
@@ -326,7 +326,7 @@ namespace VentilatorDaemon
                                     // if last value is above PEEP, assume everything is ok
                                     if (firstPeepPressureIteration)
                                     {
-                                        if (valueEntry.Value.Pressure > (double)settings["PP"] - (double)settings["ADPP"])
+                                        if (valueEntry.Value.Pressure > (int)settings["PP"] - (int)settings["ADPP"])
                                         {
                                             foundPlateau = true;
                                             break;
@@ -341,7 +341,7 @@ namespace VentilatorDaemon
 
                                     if (previousPoint != null)
                                     {
-                                        var gradient = (previousPoint.Value.Pressure - valueEntry.Value.Pressure) / ((float)(previousPoint.Value.ArduinoTime - valueEntry.Value.ArduinoTime) / 1000.0f);
+                                        var gradient = (previousPoint.Value.Pressure - valueEntry.Value.Pressure) / ((double)(previousPoint.Value.ArduinoTime - valueEntry.Value.ArduinoTime) / 1000.0);
 
                                         if (gradient > -1.0f)
                                         {
@@ -349,7 +349,7 @@ namespace VentilatorDaemon
 
                                             if (plateauCounter == 3)
                                             {
-                                                if (valueEntry.Value.Pressure > (double)settings["PP"] - (double)settings["ADPP"])
+                                                if (valueEntry.Value.Pressure > (int)settings["PP"] - (int)settings["ADPP"])
                                                 {
                                                     foundPlateau = true;
                                                     break;
