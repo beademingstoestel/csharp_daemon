@@ -13,6 +13,7 @@ using System.Data.SqlTypes;
 using VentilatorDaemon.Services;
 using System.Reflection.Metadata;
 using MongoDB.Driver;
+using System.Collections.Concurrent;
 
 namespace VentilatorDaemon
 {
@@ -48,10 +49,10 @@ namespace VentilatorDaemon
             this.logger = loggerFactory.CreateLogger<WebSocketThread>();
         }
 
-        public Dictionary<string, object> Settings
+        public ConcurrentDictionary<string, object> Settings
         {
             get;
-        } = new Dictionary<string, object>();
+        } = new ConcurrentDictionary<string, object>();
 
         public DateTime LastSettingReceivedAt
         {
@@ -122,7 +123,7 @@ namespace VentilatorDaemon
                                 if (setting != null)
                                 {
                                     object propertyValue = property.Value.ToObject(setting.SettingType);
-                                    this.Settings[name] = propertyValue;
+                                    this.Settings.AddOrUpdate(name, propertyValue, (name, value) => propertyValue);
 
                                     if (name == "RA")
                                     {

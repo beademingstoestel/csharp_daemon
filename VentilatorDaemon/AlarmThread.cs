@@ -19,7 +19,7 @@ namespace VentilatorDaemon
         private readonly IApiService apiService;
         private readonly ILogger<AlarmThread> logger;
 
-        Dictionary<string, object> settings = null;
+        Dictionary<string, object> settings = new Dictionary<string, object>();
         CalculatedValues calculatedValues;
 
         // we want to make sure every beep lasts at least 3 seconds
@@ -96,7 +96,7 @@ namespace VentilatorDaemon
             Active = false;
         }
 
-        public void SetPCAlarmBits(uint alarmBits, Dictionary<string, object> settings, CalculatedValues calculatedValues)
+        public void SetPCAlarmBits(uint alarmBits, ConcurrentDictionary<string, object> settings, CalculatedValues calculatedValues)
         {
             this.settings = new Dictionary<string, object>(settings);
             this.calculatedValues = calculatedValues;

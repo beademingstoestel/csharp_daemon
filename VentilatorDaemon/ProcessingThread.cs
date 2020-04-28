@@ -129,9 +129,10 @@ namespace VentilatorDaemon
                         var settings = webSocketThread.Settings;
                         CalculatedValues calculatedValues = new CalculatedValues();
 
-                        // are we active?
-                        if (!(settings.ContainsKey("ACTIVE") && (int)settings["ACTIVE"] > 1))
-                        {
+                    // are we active?
+                    if (!(settings.ContainsKey("ACTIVE") && (int)settings["ACTIVE"] > 1))
+                    {
+                        logger.LogDebug("Machine not active, wait for 2 seconds, current status: {0}", settings.ContainsKey("ACTIVE") ? settings["ACTIVE"] : -1);
                             await Task.Delay(2000);
                             continue;
                         }

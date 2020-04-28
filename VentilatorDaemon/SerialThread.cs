@@ -37,17 +37,6 @@ namespace VentilatorDaemon
         private DateTime? arduinoTimeOffset = null;
         private long timeAtOffset = 0;
 
-        public List<Tuple<string, byte[]>> measurementIds = new List<Tuple<string, byte[]>>()
-        {
-            Tuple.Create("breathperminute_values", ASCIIEncoding.ASCII.GetBytes("BPM=")),  // Breaths per minute
-            Tuple.Create("volume_values", ASCIIEncoding.ASCII.GetBytes("VOL=")),  // Volume
-            Tuple.Create("trigger_values", ASCIIEncoding.ASCII.GetBytes("TRIG=")), // Trigger
-            Tuple.Create("pressure_values", ASCIIEncoding.ASCII.GetBytes("PRES=")), // Pressure
-            Tuple.Create("targetpressure_values", ASCIIEncoding.ASCII.GetBytes("TPRES=")), // Target pressure
-            Tuple.Create("flow_values", ASCIIEncoding.ASCII.GetBytes("FLOW=")), // Liters/min
-            Tuple.Create("cpu_values", ASCIIEncoding.ASCII.GetBytes("CPU=")),   // CPU usage
-        };
-
         public List<IVentilatorSetting> settingIds = VentilatorSettingsFactory.GetVentilatorSettings();
 
         private byte[] ack = ASCIIEncoding.ASCII.GetBytes("ACK=");
@@ -152,6 +141,7 @@ namespace VentilatorDaemon
 
             if (crc != message[message.Length - 1])
             {
+                logger.LogDebug("Wrong crc for message '{0}', expected {1} but got {2}", message.ToHexString(), crc, message[message.Length - 1]);
                 return;
             }
 
