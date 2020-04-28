@@ -217,8 +217,8 @@ namespace VentilatorDaemon
                                 if (settings.ContainsKey("VT") && settings.ContainsKey("ADVT"))
                                 {
                                     // todo: in future versions it might be easier to convert ADVT and ADPK to absolute values
-                                    var upperLimit = (double)settings["VT"] + (double)settings["ADVT"];
-                                    var lowerLimit = (double)settings["VT"] - (double)settings["ADVT"];
+                                    var upperLimit = (int)settings["VT"] + (int)settings["ADVT"];
+                                    var lowerLimit = (int)settings["VT"] - (int)settings["ADVT"];
                                     if (tidalVolume > upperLimit)
                                     {
                                         alarmBits |= VOLUME_NOT_OK;
