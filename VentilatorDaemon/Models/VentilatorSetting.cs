@@ -22,7 +22,7 @@ namespace VentilatorDaemon.Models
             return new List<IVentilatorSetting>()
             {
                 new VentilatorSetting<int>("RR", true, true),   // Respiratory rate
-                new VentilatorSetting<int>("RA", true, true),   // Reset alarm
+                new VentilatorSetting<int>("RA", false, true),   // Reset alarm
                 new VentilatorSetting<int>("VT", true, true),   // Tidal Volume
                 new VentilatorSetting<int>("PK", true, true),   // Peak Pressure
                 new VentilatorSetting<double>("TS", true, true),   // Breath Trigger Threshold
