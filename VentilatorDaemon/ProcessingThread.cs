@@ -34,6 +34,7 @@ namespace VentilatorDaemon
         private readonly uint TIDAL_VOLUME_TOO_LOW_PC_MODE = 512; // in PC mode only
         private readonly uint FIO2_TOO_LOW = 1024;
         private readonly uint FIO2_TOO_HIGH = 2048;
+        private readonly uint BPM_TOO_HIGH = 4096;
 
         public ProcessingThread(SerialThread serialThread,
             WebSocketThread webSocketThread,
@@ -129,10 +130,10 @@ namespace VentilatorDaemon
                         var settings = webSocketThread.Settings;
                         CalculatedValues calculatedValues = new CalculatedValues();
 
-                    // are we active?
-                    if (!(settings.ContainsKey("ACTIVE") && (int)settings["ACTIVE"] > 1))
-                    {
-                        logger.LogDebug("Machine not active, wait for 2 seconds, current status: {0}", settings.ContainsKey("ACTIVE") ? settings["ACTIVE"] : -1);
+                        // are we active?
+                        if (!(settings.ContainsKey("ACTIVE") && (int)settings["ACTIVE"] > 1))
+                        {
+                            logger.LogDebug("Machine not active, wait for 2 seconds, current status: {0}", settings.ContainsKey("ACTIVE") ? settings["ACTIVE"] : -1);
                             await Task.Delay(2000);
                             continue;
                         }
@@ -202,6 +203,14 @@ namespace VentilatorDaemon
                                 }
                             }
 
+                            if (settings.ContainsKey("RRHIGHLIMIT"))
+                            {
+                                if (bpm >= (int)settings["RRHIGHLIMIT"] + 1)
+                                {
+                                    alarmBits |= BPM_TOO_HIGH;
+                                }
+                            }
+
                             var inhaleTime = (exhalemoment - startBreathingCycle) / 1000.0;
                             var exhaleTime = (endBreathingCycle - exhalemoment) / 1000.0;
 
@@ -256,16 +265,46 @@ namespace VentilatorDaemon
 
                             var plateauMinimumPressure = GetMinimum(values, (valueEntry) => valueEntry.Value.Pressure, peakPressureMoment.Value.ArduinoTime, exhalemoment);
 
-                            if (settings.ContainsKey("ADPK"))
+                            // temp code until arduino has the PKHIGHLIMIT and PLOWLIMIT
+                            if (settings.ContainsKey("ADPK") && settings.ContainsKey("PK"))
                             {
-                                var upperLimit = maxValTargetPressure + (int)settings["ADPK"];
-                                var lowerLimit = maxValTargetPressure - (int)settings["ADPK"];
+                                int adpk = (int)settings["ADPK"];
+                                int pk = (int)settings["PK"];
+
+                                if (!settings.ContainsKey("PKHIGHLIMIT"))
+                                {
+                                    settings.AddOrUpdate("PKHIGHLIMIT", pk + adpk, (key, value) => pk + adpk);
+                                }
+
+                                if (!settings.ContainsKey("PKLOWLIMIT"))
+                                {
+                                    settings.AddOrUpdate("PKLOWLIMIT", pk - adpk, (key, value) => pk - adpk);
+                                }
+                            }
+                            // end temp code
+
+                            if (settings.ContainsKey("PKHIGHLIMIT"))
+                            {
+                                int upperLimit = (int)settings["PKHIGHLIMIT"];
+
                                 if (peakPressureMoment.Value.Pressure > upperLimit
                                     || plateauMinimumPressure > upperLimit)
                                 {
                                     alarmBits |= PRESSURE_NOT_OK;
                                 }
-                                else if (peakPressureMoment.Value.Pressure < lowerLimit
+                            }
+
+                            if (settings.ContainsKey("PKLOWLIMIT"))
+                            {
+                                int lowerLimit = (int)settings["PKLOWLIMIT"];
+
+                                if (lowerLimit < maxValTargetPressure)
+                                {
+                                    // we are probably using PSUPPORT
+                                    lowerLimit = (int)maxValTargetPressure - 5;
+                                }
+
+                                if (peakPressureMoment.Value.Pressure < lowerLimit
                                   || plateauMinimumPressure < lowerLimit)
                                 {
                                     alarmBits |= PRESSURE_TOO_LOW;
