@@ -29,8 +29,8 @@ namespace VentilatorDaemon.Models
                 new VentilatorSetting<double>("IE", true, true),   // Inspiration/Expiration (N for 1/N)
                 new VentilatorSetting<int>("PP", true, true),   // PEEP (positive end expiratory pressure)
                 new VentilatorSetting<int>("ADPK", true, true), // Allowed deviation Peak Pressure/not used anymore, only kept for backward compability
-                new VentilatorSetting<int>("PKHIGHLIMIT", true, true), // Highest allowed pressure
-                new VentilatorSetting<int>("PKLOWLIMIT", true, true), // Lowest allowed pressure
+                new VentilatorSetting<int>("HPK", true, true), // Highest allowed pressure
+                new VentilatorSetting<int>("LPK", true, true), // Lowest allowed pressure
                 new VentilatorSetting<int>("ADVT", true, true), // Allowed deviation Tidal Volume
                 new VentilatorSetting<int>("ADPP", true, true), // Allowed deviation PEEP
                 new VentilatorSetting<int>("MODE", true, true),  // Machine Mode (Volume Control / Pressure Control)
@@ -42,7 +42,7 @@ namespace VentilatorDaemon.Models
                 new VentilatorSetting<double>("FW", false, false), // firmware version
                 new VentilatorSetting<double>("FIO2", true, true), // oxygen level, 0.20 -> 1.0
                 new VentilatorSetting<double>("ADFIO2", true, true), // oxygen level, 0.20 -> 1.0
-                new VentilatorSetting<int>("RRHIGHLIMIT", true, true), // detect hyperventilating, absolute value
+                new VentilatorSetting<int>("HRR", true, true), // detect hyperventilating, absolute value
             };
         }
     }

@@ -203,9 +203,9 @@ namespace VentilatorDaemon
                                 }
                             }
 
-                            if (settings.ContainsKey("RRHIGHLIMIT"))
+                            if (settings.ContainsKey("HRR"))
                             {
-                                if (bpm >= (int)settings["RRHIGHLIMIT"] + 1)
+                                if (bpm >= (int)settings["HRR"] + 1)
                                 {
                                     alarmBits |= BPM_TOO_HIGH;
                                 }
@@ -265,27 +265,27 @@ namespace VentilatorDaemon
 
                             var plateauMinimumPressure = GetMinimum(values, (valueEntry) => valueEntry.Value.Pressure, peakPressureMoment.Value.ArduinoTime, exhalemoment);
 
-                            // temp code until arduino has the PKHIGHLIMIT and PLOWLIMIT
+                            // temp code until arduino has the HPK and LPK
                             if (settings.ContainsKey("ADPK") && settings.ContainsKey("PK"))
                             {
                                 int adpk = (int)settings["ADPK"];
                                 int pk = (int)settings["PK"];
 
-                                if (!settings.ContainsKey("PKHIGHLIMIT"))
+                                if (!settings.ContainsKey("HPK"))
                                 {
-                                    settings.AddOrUpdate("PKHIGHLIMIT", pk + adpk, (key, value) => pk + adpk);
+                                    settings.AddOrUpdate("HPK", pk + adpk, (key, value) => pk + adpk);
                                 }
 
-                                if (!settings.ContainsKey("PKLOWLIMIT"))
+                                if (!settings.ContainsKey("LPK"))
                                 {
-                                    settings.AddOrUpdate("PKLOWLIMIT", pk - adpk, (key, value) => pk - adpk);
+                                    settings.AddOrUpdate("LPK", pk - adpk, (key, value) => pk - adpk);
                                 }
                             }
                             // end temp code
 
-                            if (settings.ContainsKey("PKHIGHLIMIT"))
+                            if (settings.ContainsKey("HPK"))
                             {
-                                int upperLimit = (int)settings["PKHIGHLIMIT"];
+                                int upperLimit = (int)settings["HPK"];
 
                                 if (peakPressureMoment.Value.Pressure > upperLimit
                                     || plateauMinimumPressure > upperLimit)
@@ -294,9 +294,9 @@ namespace VentilatorDaemon
                                 }
                             }
 
-                            if (settings.ContainsKey("PKLOWLIMIT"))
+                            if (settings.ContainsKey("LPK"))
                             {
-                                int lowerLimit = (int)settings["PKLOWLIMIT"];
+                                int lowerLimit = (int)settings["LPK"];
 
                                 if (lowerLimit < maxValTargetPressure)
                                 {
