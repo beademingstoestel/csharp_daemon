@@ -1,3 +1,4 @@
+
 # BREATHNEY COMMUNICATION PROTOTCOL OVERVIEW
 
 ## IMPORTANT NOTES
@@ -18,7 +19,7 @@ Example:
 	ACTIVE=1.0=F=?
 
 List of settings:
-
+```
 	ALARM		// 0  alarm state
 	RR          // 1  respiratory rate
 	VT          // 2  tidal volume
@@ -41,7 +42,7 @@ List of settings:
 	HPK			// 19 Upper limit PK
 	HRR			// 20 Upper limit RR
 	FW          // 21 Firmware version
-	
+```
 These messages require an acknowledgement.
 	
 ## MEASURED VALUES
@@ -53,19 +54,21 @@ The checksum is calculated on every byte preceding it.
 The end is indicated by the newline character (0x0A)
 
 Format:
-  0x02 
-  0x01 
-  {one byte message length}           
-  {one byte trigger value}            value between 0 or 1
-  {two bytes volume value}            value in ml of the current volume, scaled by a factor 10
-  {two bytes pressure value}          value in cmH2O of the current pressure, scaled by a factor 100
-  {two bytes target pressure value}   value in cmH2O of the target pressure, scaled by a factor 100
-  {two bytes respiratory rate}        respiratory rate in breaths per minute, scaled by a factor 100
-  {two bytes flow value}              current flow in L/min, scaled by a factor 100
-  {two bytes FIO2 value}              percentage FIO2 between 21 and 100
-  {4 bytes timestamp arduino}         timestamp of the number of milliseconds since startup
-  {CRC byte}
-  0x0A
+```
+	0x02 
+  	0x01 
+  	{one byte message length}           
+  	{one byte trigger value}            value between 0 or 1
+  	{two bytes volume value}            value in ml of the current volume, scaled by a factor 10
+  	{two bytes pressure value}          value in cmH2O of the current pressure, scaled by a factor 100
+  	{two bytes target pressure value}   value in cmH2O of the target pressure, scaled by a factor 100
+  	{two bytes respiratory rate}        respiratory rate in breaths per minute, scaled by a factor 100
+  	{two bytes flow value}              current flow in L/min, scaled by a factor 100
+  	{two bytes FIO2 value}              percentage FIO2 between 21 and 100
+  	{4 bytes timestamp arduino}         timestamp of the number of milliseconds since startup
+  	{CRC byte}
+  	0x0A
+```
 	
 These messages don't require an acknowledgement. Messages with the wrong checksum are discarded by the recipient.
 
@@ -77,7 +80,7 @@ The checksum is 1 byte, computed as the XOR of all previous bytes in the message
 
 Format:
 	ALARM=value=counter=checksum
-	
+```
 Alarm bits:
 	0:  'fio2 out of bounds'
     1:  'Pressure not within thresholds'
@@ -95,7 +98,7 @@ Alarm bits:
     13: 'Battery critical'
     14: 'Fan not operational'
     15: 'GUI not found'
-    
+```
 The PC must reply with its own ALARM message to indicate it's still connected. The PC will either send value 0 or 1 indicating whether or not the alarm should be active.
 
 ## CPU USAGE
