@@ -1,7 +1,6 @@
 # Docker
 # Build a Docker image 
 # https://docs.microsoft.com/azure/devops/pipelines/languages/docker
-
 trigger:
 - master
 
@@ -10,6 +9,7 @@ resources:
 
 variables:
   tag: '$(Build.BuildId)'
+  version: ''
 
 stages:
 - stage: Build
@@ -20,6 +20,21 @@ stages:
     pool:
       vmImage: 'ubuntu-latest'
     steps:
+    - task: PowerShell@2
+      env:
+        BUILD_ID: $(tag)
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Write your PowerShell commands here.
+
+          $content = [Xml] (Get-Content .\VentilatorDaemon\VentilatorDaemon.csproj)
+          $version = [Version] $content.Project.PropertyGroup.AssemblyVersion
+
+          $version_string = [System.String]::Format("{0}.{1}.{2}.0", $version.Major, $version.Minor, $env:BUILD_ID)
+          
+          Write-Host "Create version variable"
+          Write-Host "##vso[task.setvariable variable=version]$version_string"
     - task: Docker@2
       displayName: Build an image
       inputs:
@@ -27,7 +42,7 @@ stages:
         containerRegistry: 'DockerHubConnection'
         repository: 'beademingstoestel/daemon'
         dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
-        arguments: --build-arg build_number=$(tag)
+        arguments: --build-arg build_version=$(version)
         tags: |
           $(tag)
           latest
