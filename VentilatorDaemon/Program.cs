@@ -43,6 +43,9 @@ namespace VentilatorDaemon
                 .BuildServiceProvider();
             logger = serviceProvider.GetService<ILoggerFactory>().CreateLogger<Program>();
 
+            logger.LogInformation("Starting daemon {0} with version: {1}", 
+                Assembly.GetEntryAssembly().GetName().Name, 
+                Assembly.GetEntryAssembly().GetName().Version);
 
             //wait for mongo to be available
             await CheckMongoAvailibility(mongoHost);
