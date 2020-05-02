@@ -74,7 +74,18 @@ stages:
           $(tag)
           latest
     - task: PublishBuildArtifacts@1
+      displayName: Publish artifact
       inputs:
         PathtoPublish: '$(Build.ArtifactStagingDirectory)'
         ArtifactName: 'daemon'
         publishLocation: 'Container'
+    - task: UniversalPackages@0
+      inputs:
+        command: 'publish'
+        publishDirectory: '$(Build.ArtifactStagingDirectory)'
+        feedsToUsePublish: 'internal'
+        vstsFeedPublish: '7bc5a5ea-bb39-4104-bb3e-5a9943794ea2/11b9ff53-9849-4ae8-b460-5a2301ca35b7'
+        vstsFeedPackagePublish: 'daemon'
+        versionOption: 'custom'
+        versionPublish: '$(version)'
+        packagePublishDescription: 'C# daemon for the opensource ventilator project'
