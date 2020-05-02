@@ -35,6 +35,24 @@ stages:
           
           Write-Host "Create version variable"
           Write-Host "##vso[task.setvariable variable=version]$version_string"
+    - task: DotNetCoreCLI@2
+      displayName: 'Restore nuget packages for windows version'
+      inputs:
+        command: 'restore'
+        projects: './VentilatorDaemon/VentilatorDaemon.csproj'
+    - task: DotNetCoreCLI@2
+      displayName: 'Build windows version'
+      inputs:
+        command: 'build'
+        projects: './VentilatorDaemon/VentilatorDaemon.csproj'
+        arguments: '-c Release /p:AssemblyVersion=$(version)'
+    - task: DotNetCoreCLI@2
+      displayName: 'Publish windows version'
+      inputs:
+        command: 'build'
+        projects: './VentilatorDaemon/VentilatorDaemon.csproj'
+        arguments: '-c Release --output $(Build.ArtifactStagingDirectory) /p:AssemblyVersion=$(version)'
+        zipAfterPublish: true
     - task: Docker@2
       displayName: Build an image
       inputs:
