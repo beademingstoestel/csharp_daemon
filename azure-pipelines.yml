@@ -10,6 +10,7 @@ resources:
 variables:
   tag: '$(Build.BuildId)'
   version: ''
+  semantic_version: ''
 
 stages:
 - stage: Build
@@ -31,10 +32,12 @@ stages:
           $content = [Xml] (Get-Content .\VentilatorDaemon\VentilatorDaemon.csproj)
           $version = [Version] $content.Project.PropertyGroup.AssemblyVersion
 
-          $version_string = [System.String]::Format("{0}.{1}.{2}.0", $version.Major, $version.Minor, $env:BUILD_ID)
+          $semantic_version_string = [System.String]::Format("{0}.{1}.{2}", $version.Major, $version.Minor, $env:BUILD_ID)
+          $version_string = [System.String]::Format("{0}.0", $semantic_version_string)
           
           Write-Host "Create version variable"
           Write-Host "##vso[task.setvariable variable=version]$version_string"
+          Write-Host "##vso[task.setvariable variable=semantic_version]$semantic_version_string"
     - task: DotNetCoreCLI@2
       displayName: 'Restore nuget packages for windows version'
       inputs:
@@ -87,5 +90,5 @@ stages:
         vstsFeedPublish: '7bc5a5ea-bb39-4104-bb3e-5a9943794ea2/11b9ff53-9849-4ae8-b460-5a2301ca35b7'
         vstsFeedPackagePublish: 'daemon'
         versionOption: 'custom'
-        versionPublish: '$(version)'
+        versionPublish: '$(semantic_version)'
         packagePublishDescription: 'C# daemon for the opensource ventilator project'
