@@ -73,3 +73,8 @@ stages:
         tags: |
           $(tag)
           latest
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'daemon'
+        publishLocation: 'Container'
