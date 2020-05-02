@@ -8,7 +8,7 @@ This project can be built with visual studio and uses .NET core 3.1
 
 Built binaries that are self-contained can be found at:
 
-Windows 64: https://github.com/beademingstoestel/csharp_daemon/tree/master/VentilatorDaemon/publish
+Windows 64 builds: https://dev.azure.com/TomBruyneel/TomBruyneel/_packaging?_a=feed&feed=daemon
 
 For linux use the beademingstoestel/daemon image from [docker hub](https://hub.docker.com/#/beademingstoestel)
 
