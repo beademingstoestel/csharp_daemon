@@ -104,7 +104,7 @@ stages:
         action: create
         repositoryName: 'beademingstoestel/csharp_daemon'
         tagSource: manual
-        tag: $(github_version_string)
+        tag: 'v1.3'
         assetUploadMode: replace
         releaseNotesSource: input
         releaseNotes: 'Version: $(semantic_version)'
