@@ -36,7 +36,7 @@ stages:
 
           $semantic_version_string = [System.String]::Format("{0}.{1}.{2}", $version.Major, $version.Minor, $env:BUILD_ID)
           $version_string = [System.String]::Format("{0}.0", $semantic_version_string)
-          $github_version_string = [System.String]::Format("v{0}.{1}", $version.Major, $version.Minor)
+          $github_version_string = [System.String]::Format("v{0}.{1}.{2}", $version.Major, $version.Minor, $env:BUILD_ID)
           
           Write-Host "Create version variable"
           Write-Host "##vso[task.setvariable variable=version]$version_string"
@@ -100,11 +100,11 @@ stages:
     - task: GitHubRelease@1
       inputs:
         gitHubConnection: 'GithubAzurePipelines'
-        repositoryName: '$(Build.Repository.Name)'
-        action: 'create'
-        target: '$(Build.SourceVersion)'
+        repositoryName: 'beademingstoestel/csharp_daemon'
+        action: edit
+        target: 'master'
         tagSource: 'userSpecifiedTag'
-        tag: '$(github_version)'
+        tag: 'v1.3'
         title: 'Release version $(semantic_version)'
         releaseNotesSource: 'inline'
         releaseNotesInline: 'Version: $(semantic_version)'
