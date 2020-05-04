@@ -99,12 +99,12 @@ stages:
         packagePublishDescription: 'C# daemon for the opensource ventilator project'
     - task: GitHubRelease@1
       inputs:
-        gitHubConnection: 'beademingstoestel'
+        gitHubConnection: 'github_tom_bruyneel'
         repositoryName: 'beademingstoestel/csharp_daemon'
-        action: edit
+        action: create
         target: 'master'
         tagSource: 'userSpecifiedTag'
-        tag: 'v1.3'
+        tag: '$(github_version_string)'
         title: 'Release version $(semantic_version)'
         releaseNotesSource: 'inline'
         releaseNotesInline: 'Version: $(semantic_version)'
