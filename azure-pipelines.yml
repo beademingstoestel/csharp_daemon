@@ -99,7 +99,7 @@ stages:
         packagePublishDescription: 'C# daemon for the opensource ventilator project'
     - task: GitHubRelease@1
       inputs:
-        gitHubConnection: 'GithubAzurePipelines'
+        gitHubConnection: 'beademingstoestel'
         repositoryName: 'beademingstoestel/csharp_daemon'
         action: edit
         target: 'master'
