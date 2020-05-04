@@ -94,3 +94,12 @@ stages:
         versionOption: 'custom'
         versionPublish: '$(semantic_version)'
         packagePublishDescription: 'C# daemon for the opensource ventilator project'
+    - task: GithubRelease@0 
+      displayName: 'Create GitHub Release'
+      inputs:
+        gitHubConnection: GithubAzurePipelines
+        repositoryName: beademingstoestel/csharp_daemon
+        tagSource: manual
+        tag: 'v$(semantic_version)'
+        assets: |
+          $(Build.ArtifactStagingDirectory)/VentilatorDaemon.zip
