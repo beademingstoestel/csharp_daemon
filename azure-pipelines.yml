@@ -98,8 +98,13 @@ stages:
       displayName: 'Create GitHub Release'
       inputs:
         gitHubConnection: GithubAzurePipelines
-        repositoryName: beademingstoestel/csharp_daemon
+        action: create
+        repositoryName: '$(Build.Repository.Name)'
         tagSource: manual
         tag: 'v$(semantic_version)'
+        assetUploadMode: replace
+        releaseNotesSource: input
+        releaseNotes: 'Version: $(semantic_version)'
+        addChangeLog: true
         assets: |
-          $(Build.ArtifactStagingDirectory)/VentilatorDaemon.zip
+          $(Build.ArtifactStagingDirectory)/*.zip
