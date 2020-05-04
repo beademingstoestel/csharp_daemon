@@ -11,6 +11,7 @@ variables:
   tag: '$(Build.BuildId)'
   version: ''
   semantic_version: ''
+  github_version: ''
 
 stages:
 - stage: Build
@@ -35,10 +36,12 @@ stages:
 
           $semantic_version_string = [System.String]::Format("{0}.{1}.{2}", $version.Major, $version.Minor, $env:BUILD_ID)
           $version_string = [System.String]::Format("{0}.0", $semantic_version_string)
+          $github_version_string = [System.String]::Format("{0}.{1}", $version.Major, $version.Minor)
           
           Write-Host "Create version variable"
           Write-Host "##vso[task.setvariable variable=version]$version_string"
           Write-Host "##vso[task.setvariable variable=semantic_version]$semantic_version_string"
+          Write-Host "##vso[task.setvariable variable=github_version]$github_version_string"
     - task: DotNetCoreCLI@2
       displayName: 'Restore nuget packages for windows version'
       inputs:
@@ -101,7 +104,7 @@ stages:
         action: create
         repositoryName: 'beademingstoestel/csharp_daemon'
         tagSource: manual
-        tag: 'v$(semantic_version)'
+        tag: 'v$(github_version_string)'
         assetUploadMode: replace
         releaseNotesSource: input
         releaseNotes: 'Version: $(semantic_version)'
