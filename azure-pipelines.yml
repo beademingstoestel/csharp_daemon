@@ -104,7 +104,7 @@ stages:
         action: create
         target: 'master'
         tagSource: 'userSpecifiedTag'
-        tag: '$(github_version_string)'
+        tag: $(github_version_string)
         title: 'Release version $(semantic_version)'
         releaseNotesSource: 'inline'
         releaseNotesInline: 'Version: $(semantic_version)'
