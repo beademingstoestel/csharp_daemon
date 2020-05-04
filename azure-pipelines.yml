@@ -110,9 +110,5 @@ stages:
         releaseNotesInline: 'Version: $(semantic_version)'
         assets: '$(Build.ArtifactStagingDirectory)/*'
         changeLogCompareToRelease: 'lastFullRelease'
-        changeLogType: 'commitBased''
-            addChangeLog: true
-            assets: |
-              $(Build.ArtifactStagingDirectory)/*
-
-    
+        changeLogType: 'commitBased'
+        addChangeLog: true
