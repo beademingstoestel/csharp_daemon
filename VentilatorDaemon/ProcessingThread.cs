@@ -252,7 +252,7 @@ namespace VentilatorDaemon
 
                             var residualVolume = GetMinimum(values, (valueEntry) => valueEntry.Value.Volume, exhalemoment, endBreathingCycle - 80);
 
-                            if (Math.Abs(residualVolume) > 50)
+                            if (residualVolume > 50)
                             {
                                 alarmBits |= RESIDUAL_VOLUME_NOT_OK;
                             }
@@ -298,7 +298,7 @@ namespace VentilatorDaemon
                             {
                                 int lowerLimit = (int)settings["LPK"];
 
-                                if (lowerLimit < maxValTargetPressure)
+                                if (lowerLimit >= maxValTargetPressure)
                                 {
                                     // we are probably using PSUPPORT
                                     lowerLimit = (int)maxValTargetPressure - 5;
