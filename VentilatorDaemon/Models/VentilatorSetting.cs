@@ -43,6 +43,8 @@ namespace VentilatorDaemon.Models
                 new VentilatorSetting<double>("FIO2", true, true), // oxygen level, 0.20 -> 1.0
                 new VentilatorSetting<double>("ADFIO2", true, true), // oxygen level, 0.20 -> 1.0
                 new VentilatorSetting<int>("HRR", true, true), // detect hyperventilating, absolute value
+                new VentilatorSetting<int>("LRR", true, true), // detect low bpm, absolute value
+                new VentilatorSetting<int>("RVOL", true, true), // detect residual volume, absolute value
             };
         }
     }

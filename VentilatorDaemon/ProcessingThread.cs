@@ -195,19 +195,26 @@ namespace VentilatorDaemon
 
                             calculatedValues.RespatoryRate = bpm;
 
-                            if (settings.ContainsKey("RR"))
-                            {
-                                if (bpm <= (int)settings["RR"] - 1.0f)
-                                {
-                                    alarmBits |= BPM_TOO_LOW;
-                                }
-                            }
-
                             if (settings.ContainsKey("HRR"))
                             {
                                 if (bpm >= (int)settings["HRR"] + 1)
                                 {
                                     alarmBits |= BPM_TOO_HIGH;
+                                }
+                            }
+
+                            if (settings.ContainsKey("LRR"))
+                            {
+                                if (bpm < (int)settings["LRR"])
+                                {
+                                    alarmBits |= BPM_TOO_LOW;
+                                }
+                            } 
+                            else
+                            {
+                                if (settings.ContainsKey("RR") && bpm < (int)settings["RR"] - 1.0f)
+                                {
+                                    alarmBits |= BPM_TOO_LOW;
                                 }
                             }
 
@@ -252,7 +259,14 @@ namespace VentilatorDaemon
 
                             var residualVolume = GetMinimum(values, (valueEntry) => valueEntry.Value.Volume, exhalemoment, endBreathingCycle - 80);
 
-                            if (residualVolume > 50)
+                            int residualVolumeSetting = 50;
+
+                            if (settings.ContainsKey("RVOL"))
+                            {
+                                residualVolume = (int)settings["RVOL"];
+                            }
+
+                            if (residualVolume > residualVolumeSetting)
                             {
                                 alarmBits |= RESIDUAL_VOLUME_NOT_OK;
                             }
