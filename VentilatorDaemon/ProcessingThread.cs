@@ -263,7 +263,7 @@ namespace VentilatorDaemon
 
                             if (settings.ContainsKey("RVOL"))
                             {
-                                residualVolume = (int)settings["RVOL"];
+                                residualVolumeSetting = (int)settings["RVOL"];
                             }
 
                             if (residualVolume > residualVolumeSetting)
