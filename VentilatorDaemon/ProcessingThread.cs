@@ -10,6 +10,7 @@ using VentilatorDaemon.Models.Db;
 using VentilatorDaemon.Models.Api;
 using VentilatorDaemon.Services;
 using Microsoft.Extensions.Logging;
+using System.Text;
 
 namespace VentilatorDaemon
 {
@@ -183,7 +184,13 @@ namespace VentilatorDaemon
                                 .Where(v => v.Value.ArduinoTime > startBreathingCycle && v.Value.ArduinoTime <= endBreathingCycle && v.Value.TargetPressure == minValTargetPressure)
                                 .FirstOrDefault();
 
+                            if (targetPressureExhale == null)
+                            {
+                                continue;
+                            }
+
                             long exhalemoment = targetPressureExhale.Value.ArduinoTime - 40;
+
 
                             if (targetPressureExhale == null)
                             {
@@ -382,6 +389,7 @@ namespace VentilatorDaemon
                                         if (valueEntry.Value.Pressure > (int)settings["PP"] - (int)settings["ADPP"])
                                         {
                                             foundPlateau = true;
+                                            calculatedValues.Peep = valueEntry.Value.Pressure;
                                             break;
                                         }
 
@@ -405,6 +413,7 @@ namespace VentilatorDaemon
                                                 if (valueEntry.Value.Pressure > (int)settings["PP"] - (int)settings["ADPP"])
                                                 {
                                                     foundPlateau = true;
+                                                    calculatedValues.Peep = valueEntry.Value.Pressure;
                                                     break;
                                                 }
                                                 else
@@ -458,8 +467,8 @@ namespace VentilatorDaemon
                             calculatedValues.VolumePerMinute = calculatedValues.VolumePerMinute / ((breathingCycles.Last().Item2 - breathingCycles.First().Item1) / 1000.0) * 60.0;
                         }
 
-
                         await apiService.SendCalculatedValuesToServerAsync(calculatedValues);
+                        serialThread.WriteData(ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", "PEEP", calculatedValues.Peep.ToString("0.00"))));
                     }
                     catch (Exception e)
                     {

@@ -27,5 +27,7 @@ namespace VentilatorDaemon.Models.Api
         public double LungCompliance { get; set; }
         [JsonProperty("lungResistance")]
         public double LungResistance { get; set; }
+        [JsonProperty("peep")]
+        public double Peep { get; set; }
     }
 }
