@@ -3,6 +3,7 @@ using Flurl.Http.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MongoDB.Driver;
+using Mono.Options;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -19,12 +20,32 @@ namespace VentilatorDaemon
     {
         private static ILogger logger;
 
-        static async Task Main(string[] args)
+        static async Task<int> Main(string[] args)
         {
             // get environment variables
             var mongoHost = Environment.GetEnvironmentVariable("MONGO_HOST") ?? "localhost";
             var interfaceHost = Environment.GetEnvironmentVariable("INTERFACE_HOST") ?? "localhost";
             var serialPort = Environment.GetEnvironmentVariable("SERIAL_PORT");
+            var logDirectory = Environment.GetEnvironmentVariable("LOG_DIRECTORY");
+
+            // get console line arguments
+            var options = new OptionSet {
+                { "p|port=", "The name of the serialport", p => serialPort = p ?? serialPort },
+                { "i|interface=", "The host running the interface server.", i => interfaceHost = i ?? interfaceHost },
+                { "m|mongo=", "The hostname for connecting to the mongo servers", m => mongoHost = m ?? mongoHost },
+                { "d|logdirectory=", "The directory to where the daemon writes the log files, if provided", l => logDirectory = l ?? logDirectory },
+            };
+
+            try
+            {
+                // parse the command line
+                options.Parse(args);
+            }
+            catch (OptionException e)
+            {
+                Console.WriteLine("Error while trying to parse the options: " + e.Message);
+                return -1;
+            }
 
             var serviceProvider = new ServiceCollection()
                 .AddLogging(builder => builder.AddConsole().AddFilter(level => level >= LogLevel.Debug))
@@ -81,6 +102,7 @@ namespace VentilatorDaemon
             
             // as there is currently no way to cancel the tokens, we should never get here
             logger.LogInformation("Daemon finished");
+            return 0;
         }
 
         static void GeneralConfiguration()
