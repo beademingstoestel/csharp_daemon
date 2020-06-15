@@ -132,7 +132,7 @@ namespace VentilatorDaemon
                         CalculatedValues calculatedValues = new CalculatedValues();
 
                         // are we active?
-                        if (!(settings.ContainsKey("ACTIVE") && (int)settings["ACTIVE"] > 1))
+                        if (!(settings.ContainsKey("ACTIVE") && (int)settings["ACTIVE"] == 3))
                         {
                             logger.LogDebug("Machine not active, wait for 2 seconds, current status: {0}", settings.ContainsKey("ACTIVE") ? settings["ACTIVE"] : -1);
                             await Task.Delay(2000);
@@ -334,6 +334,8 @@ namespace VentilatorDaemon
 
                             calculatedValues.PeakPressure = peakPressureMoment.Value.Pressure;
                             calculatedValues.PressurePlateau = plateauMinimumPressure;
+
+                            calculatedValues.LungCompliance = tidalVolume / plateauMinimumPressure;
 
                             // check fio2 values in last cycle
                             // get biggest FiO2 deviation
