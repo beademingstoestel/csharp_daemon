@@ -23,6 +23,12 @@ namespace VentilatorDaemon.Models.Db
 
         [BsonElement("fiO2")]
         public double FiO2 { get; set; }
+
+        [BsonElement("fiO2i")]
+        public double FiO2Inhale { get; set; }
+
+        [BsonElement("fiO2e")]
+        public double FiO2Exhale { get; set; }
         public long ArduinoTime { get; set; }
     }
 }

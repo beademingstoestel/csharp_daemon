@@ -9,5 +9,6 @@ namespace VentilatorDaemon.Models
         public string DatabaseHost { get; set; }
         public string WebServerHost { get; set; }
         public string SerialPort { get; set; }
+        public string LogDirectory { get; set; }
     }
 }

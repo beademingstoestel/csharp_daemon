@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.IO.Ports;
 using System.Linq;
 using System.Text;
@@ -42,7 +43,7 @@ namespace VentilatorDaemon
         private byte[] ack = ASCIIEncoding.ASCII.GetBytes("ACK=");
         private byte[] alarm = ASCIIEncoding.ASCII.GetBytes("ALARM=");
         private byte[] measurement = new byte[] { 0x02, 0x01 };
-
+        private readonly ProgramSettings programSettings;
         private readonly AlarmThread alarmThread;
         private readonly IApiService apiService;
         private readonly IDbService dbService;
@@ -51,6 +52,7 @@ namespace VentilatorDaemon
         private bool dtrEnable = false;
 
         public SerialThread(IDbService dbService,
+            ProgramSettings programSettings,
             IApiService apiService,
             AlarmThread alarmThread,
             ILoggerFactory loggerFactory)
@@ -61,6 +63,7 @@ namespace VentilatorDaemon
             serialPort.ReadTimeout = 1500;
             serialPort.WriteTimeout = 1500;
 
+            this.programSettings = programSettings;
             this.alarmThread = alarmThread;
             this.apiService = apiService;
             this.dbService = dbService;
@@ -233,7 +236,7 @@ namespace VentilatorDaemon
                 {
                     if (message.StartsWith(measurement))
                     {
-                        // 0x02 0x01 {byte message length} {byte trigger} {two bytes V} {two bytes P} {two bytes TP} {two bytes BPM} {two bytes FLOW} {two bytes FIO2} {4 bytes time} {CRC byte}
+                        // 0x02 0x01 {byte message length} {byte trigger} {two bytes V} {two bytes P} {two bytes TP} {two bytes BPM} {two bytes FLOW} {two bytes FIO2} {two bytes FIO2INHALE} {two bytes FIO2EXHALE} {4 bytes time} {CRC byte}
                         try
                         {
                             // todo: is time wrapping on the arduino a problem?
@@ -244,6 +247,8 @@ namespace VentilatorDaemon
                             var bpm = BitConverter.ToInt16(message, 10) / 100.0;
                             var flow = BitConverter.ToInt16(message, 12) / 100.0;
                             var fio2 = BitConverter.ToInt16(message, 14) / 100.0;
+                            var fio2i = BitConverter.ToInt16(message, 14) / 100.0;
+                            var fio2e = BitConverter.ToInt16(message, 14) / 100.0;
                             var time = BitConverter.ToUInt32(message, 16);                            
 
                             if (!arduinoTimeOffset.HasValue || time - timeAtOffset > 120e3)
@@ -262,7 +267,15 @@ namespace VentilatorDaemon
                                     trigger,
                                     flow,
                                     fio2,
+                                    fio2i,
+                                    fio2e,
                                     bpm);
+
+                                // if there is a logdirectory specified, make sure we log the result
+                                if (!string.IsNullOrEmpty(programSettings.LogDirectory))
+                                {
+                                    
+                                }
                             }
                             catch (Exception e)
                             {
@@ -478,7 +491,7 @@ namespace VentilatorDaemon
             logger.LogInformation("Starting communication with {0}", serialPort.PortName);
         }
 
-        public void SetPortName()
+        public void SetPortName(CancellationToken cancellationToken)
         {
             string portName = null;
 
@@ -486,8 +499,13 @@ namespace VentilatorDaemon
 
             while(SerialPort.GetPortNames().Count() == 0)
             {
-                Thread.Sleep(1000);
-                logger.LogInformation("Waiting for serial ports to become available");
+                Thread.Sleep(2000);
+                logger.LogInformation("Waiting for serial ports to become available.");
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
             }
 
             foreach (string s in SerialPort.GetPortNames())

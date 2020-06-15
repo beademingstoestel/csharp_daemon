@@ -49,11 +49,12 @@ namespace VentilatorDaemon
 
             var serviceProvider = new ServiceCollection()
                 .AddLogging(builder => builder.AddConsole().AddFilter(level => level >= LogLevel.Debug))
-                .AddSingleton<ProgramSettings>(new ProgramSettings()
+                .AddSingleton(new ProgramSettings()
                 {
                     DatabaseHost = mongoHost,
                     SerialPort = serialPort,
                     WebServerHost = interfaceHost,
+                    LogDirectory = logDirectory,
                 })
                 .AddTransient<IApiService, ApiService>()
                 .AddTransient<IDbService, DbService>()
@@ -78,6 +79,10 @@ namespace VentilatorDaemon
             CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
             var cancellationToken = cancellationTokenSource.Token;
 
+            Console.CancelKeyPress += delegate {
+                // call methods to clean up
+                cancellationTokenSource.Cancel();
+            };
 
             AlarmThread alarmThread = serviceProvider.GetService<AlarmThread>();
             SerialThread serialThread = serviceProvider.GetService<SerialThread>();
@@ -86,19 +91,22 @@ namespace VentilatorDaemon
 
             if (string.IsNullOrEmpty(serialPort))
             {
-                serialThread.SetPortName();
+                serialThread.SetPortName(cancellationToken);
             }
             else
             {
                 serialThread.SetPortName(serialPort);
             }
 
-            var alarmTask = alarmThread.Start(cancellationToken);
-            var webSocketTask = webSocketThread.Start(cancellationToken);
-            var serialTask = serialThread.Start(cancellationToken);
-            var processingTask = processingThread.Start(cancellationToken);
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                var alarmTask = alarmThread.Start(cancellationToken);
+                var webSocketTask = webSocketThread.Start(cancellationToken);
+                var serialTask = serialThread.Start(cancellationToken);
+                var processingTask = processingThread.Start(cancellationToken);
 
-            Task.WaitAll(webSocketTask, serialTask, processingTask, alarmTask);
+                Task.WaitAll(webSocketTask, serialTask, processingTask, alarmTask);
+            }
             
             // as there is currently no way to cancel the tokens, we should never get here
             logger.LogInformation("Daemon finished");

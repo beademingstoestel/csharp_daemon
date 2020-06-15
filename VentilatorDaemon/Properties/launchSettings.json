@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "VentilatorDaemon": {
+      "commandName": "Project",
+      "commandLineArgs": "-d e:\\testlog\\"
+    }
+  }
+}
