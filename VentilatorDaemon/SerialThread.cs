@@ -247,9 +247,9 @@ namespace VentilatorDaemon
                             var bpm = BitConverter.ToInt16(message, 10) / 100.0;
                             var flow = BitConverter.ToInt16(message, 12) / 100.0;
                             var fio2 = BitConverter.ToInt16(message, 14) / 100.0;
-                            var fio2i = BitConverter.ToInt16(message, 14) / 100.0;
-                            var fio2e = BitConverter.ToInt16(message, 14) / 100.0;
-                            var time = BitConverter.ToUInt32(message, 16);                            
+                            var fio2i = BitConverter.ToInt16(message, 16) / 100.0;
+                            var fio2e = BitConverter.ToInt16(message, 18) / 100.0;
+                            var time = BitConverter.ToUInt32(message, 20);                            
 
                             if (!arduinoTimeOffset.HasValue || time - timeAtOffset > 120e3)
                             {
