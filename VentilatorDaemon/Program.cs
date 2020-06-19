@@ -27,6 +27,8 @@ namespace VentilatorDaemon
             var interfaceHost = Environment.GetEnvironmentVariable("INTERFACE_HOST") ?? "localhost";
             var serialPort = Environment.GetEnvironmentVariable("SERIAL_PORT");
             var logDirectory = Environment.GetEnvironmentVariable("LOG_DIRECTORY");
+            var dbCollectionPrefix = Environment.GetEnvironmentVariable("DB_COLLECTION_PREFIX") ?? "";
+            var interfacePort = Environment.GetEnvironmentVariable("INTERFACE_PORT") ?? "3001";
 
             // get console line arguments
             var options = new OptionSet {
@@ -34,6 +36,8 @@ namespace VentilatorDaemon
                 { "i|interface=", "The host running the interface server.", i => interfaceHost = i ?? interfaceHost },
                 { "m|mongo=", "The hostname for connecting to the mongo servers", m => mongoHost = m ?? mongoHost },
                 { "d|logdirectory=", "The directory to where the daemon writes the log files, if provided", l => logDirectory = l ?? logDirectory },
+                { "c|collectionPrefix=", "The prefix to be used in front of the mongo collection name", l => dbCollectionPrefix = l ?? dbCollectionPrefix },
+                { "ip|interfacePort=", "The port on which the interface listens", l => interfacePort = l ?? interfacePort },
             };
 
             try
@@ -47,15 +51,22 @@ namespace VentilatorDaemon
                 return -1;
             }
 
+            int interfacePortInt = 3001;
+            int.TryParse(interfacePort, out interfacePortInt);
+
+            var programSettings = new ProgramSettings()
+            {
+                DatabaseHost = mongoHost,
+                SerialPort = serialPort,
+                WebServerHost = interfaceHost,
+                LogDirectory = logDirectory,
+                WebServerPort = interfacePortInt,
+                DbCollectionPrefix = dbCollectionPrefix,
+            };
+
             var serviceProvider = new ServiceCollection()
                 .AddLogging(builder => builder.AddConsole().AddFilter(level => level >= LogLevel.Debug))
-                .AddSingleton(new ProgramSettings()
-                {
-                    DatabaseHost = mongoHost,
-                    SerialPort = serialPort,
-                    WebServerHost = interfaceHost,
-                    LogDirectory = logDirectory,
-                })
+                .AddSingleton(programSettings)
                 .AddTransient<IApiService, ApiService>()
                 .AddTransient<IDbService, DbService>()
                 .AddSingleton<AlarmThread>()
@@ -70,8 +81,8 @@ namespace VentilatorDaemon
                 Assembly.GetEntryAssembly().GetName().Version);
 
             //wait for mongo to be available
-            await CheckMongoAvailibility(mongoHost);
-            await CheckWebServerAvailibility(interfaceHost);
+            await CheckMongoAvailibility(programSettings);
+            await CheckWebServerAvailibility(programSettings);
 
             GeneralConfiguration();
 
@@ -128,7 +139,7 @@ namespace VentilatorDaemon
             Thread.CurrentThread.CurrentUICulture = new System.Globalization.CultureInfo("en-US");
         }
 
-        static async Task CheckMongoAvailibility(string databaseHost)
+        static async Task CheckMongoAvailibility(ProgramSettings programSettings)
         {
             bool foundMongo = false;
 
@@ -136,8 +147,8 @@ namespace VentilatorDaemon
             {
                 try
                 {
-                    var client = new MongoClient($"mongodb://{databaseHost}:27017/?connect=direct;replicaSet=rs0;readPreference=primaryPreferred");
-                    var database = client.GetDatabase("beademing");
+                    var client = new MongoClient($"mongodb://{programSettings.DatabaseHost}:27017/?connect=direct;replicaSet=rs0;readPreference=primaryPreferred");
+                    var database = client.GetDatabase(programSettings.GetDatabaseName());
 
                     await database.ListCollectionsAsync();
 
@@ -151,10 +162,10 @@ namespace VentilatorDaemon
             } 
         }
 
-        static async Task CheckWebServerAvailibility(string webServerHost)
+        static async Task CheckWebServerAvailibility(ProgramSettings programSettings)
         {
             bool foundServer = false;
-            FlurlClient flurlClient = new FlurlClient($"http://{webServerHost}:3001");
+            FlurlClient flurlClient = new FlurlClient($"http://{programSettings.WebServerHost}:{programSettings.WebServerPort}");
             
             while (!foundServer)
             {

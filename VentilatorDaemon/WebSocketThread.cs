@@ -41,7 +41,7 @@ namespace VentilatorDaemon
             IApiService apiService,
             ILoggerFactory loggerFactory)
         {
-            this.uri = $"ws://{programSettings.WebServerHost}:3001";
+            this.uri = $"ws://{programSettings.WebServerHost}:{programSettings.WebServerPort}";
             this.serialThread = serialThread;
             this.alarmThread = alarmThread;
             this.apiService = apiService;

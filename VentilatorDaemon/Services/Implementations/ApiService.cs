@@ -17,7 +17,7 @@ namespace VentilatorDaemon.Services.Implementations
         public ApiService(ProgramSettings programSettings,
             ILoggerFactory loggerFactory)
         {
-            this.flurlClient = new FlurlClient($"http://{programSettings.WebServerHost}:3001");
+            this.flurlClient = new FlurlClient($"http://{programSettings.WebServerHost}:{programSettings.WebServerPort}");
 
             this.logger = loggerFactory.CreateLogger<ApiService>();
         }

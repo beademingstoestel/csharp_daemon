@@ -19,7 +19,7 @@ namespace VentilatorDaemon.Services.Implementations
             ILoggerFactory loggerFactory)
         {
             client = new MongoClient($"mongodb://{programSettings.DatabaseHost}:27017/?connect=direct;replicaSet=rs0;readPreference=primaryPreferred");
-            database = client.GetDatabase("beademing");
+            database = client.GetDatabase(programSettings.GetDatabaseName());
 
             this.logger = loggerFactory.CreateLogger<DbService>();
         }
