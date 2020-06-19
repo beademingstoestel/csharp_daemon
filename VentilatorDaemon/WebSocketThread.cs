@@ -172,6 +172,8 @@ namespace VentilatorDaemon
                                         });
 
                                         handled = true;
+
+                                        serialThread.MachineState = (int)propertyValue;
                                     }
                                     else if (name == "ACTIVE")
                                     {
@@ -187,6 +189,8 @@ namespace VentilatorDaemon
                                             alarmThread.SetInactive();
                                         });
                                         handled = true;
+
+                                        serialThread.MachineState = (int)propertyValue;
                                     }
 
                                     if (!handled && setting.SendToArduino)

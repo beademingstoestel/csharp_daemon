@@ -30,6 +30,8 @@ namespace VentilatorDaemon
             var dbCollectionPrefix = Environment.GetEnvironmentVariable("DB_COLLECTION_PREFIX") ?? "";
             var interfacePort = Environment.GetEnvironmentVariable("INTERFACE_PORT") ?? "3001";
 
+            var showHelp = false;
+
             // get console line arguments
             var options = new OptionSet {
                 { "p|port=", "The name of the serialport", p => serialPort = p ?? serialPort },
@@ -38,7 +40,14 @@ namespace VentilatorDaemon
                 { "d|logdirectory=", "The directory to where the daemon writes the log files, if provided", l => logDirectory = l ?? logDirectory },
                 { "c|collectionPrefix=", "The prefix to be used in front of the mongo collection name", l => dbCollectionPrefix = l ?? dbCollectionPrefix },
                 { "ip|interfacePort=", "The port on which the interface listens", l => interfacePort = l ?? interfacePort },
+                { "h|help",  "show this message and exit", v => showHelp = (v != null) },
             };
+
+            if (showHelp)
+            {
+                options.WriteOptionDescriptions(Console.Out);
+                return 0;
+            }
 
             try
             {

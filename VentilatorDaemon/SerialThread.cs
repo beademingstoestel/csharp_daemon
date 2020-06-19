@@ -5,12 +5,15 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
+using System.Reflection.PortableExecutable;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using VentilatorDaemon.Helpers.Console;
 using VentilatorDaemon.Helpers.Serial;
 using VentilatorDaemon.Models;
+using VentilatorDaemon.Models.Db;
 using VentilatorDaemon.Services;
 
 namespace VentilatorDaemon
@@ -51,6 +54,8 @@ namespace VentilatorDaemon
         private ConcurrentDictionary<byte, SentSerialMessage> waitingForAck = new ConcurrentDictionary<byte, SentSerialMessage>();
         private bool dtrEnable = false;
 
+        private List<MeasuredValues> measuredValues = new List<MeasuredValues>();
+
         public SerialThread(IDbService dbService,
             ProgramSettings programSettings,
             IApiService apiService,
@@ -70,6 +75,93 @@ namespace VentilatorDaemon
         }
 
         public ConnectionState ConnectionState { get; set; } = ConnectionState.SerialNotConnected;
+
+        private Stream measuredValuesFile;
+
+        private int machineState = -4;
+        public int MachineState 
+        { 
+            get => machineState; 
+            set
+            {
+                if (!string.IsNullOrEmpty(programSettings.LogDirectory))
+                {
+                    if (machineState != value)
+                    {
+                        if (value == 3)
+                        {
+                            // clear our measurements
+                            measuredValues.Clear();
+
+                            // create the path for our csv
+                            var filename = String.Format("{0}_{1}_measurements.csv", DateTime.Now.ToString("yyyyMMdd"), DateTime.Now.ToString("HHmmss"));
+
+                            var path = programSettings.LogDirectory;
+
+                            if (!string.IsNullOrEmpty(programSettings.DbCollectionPrefix))
+                            {
+                                path = Path.Combine(path, programSettings.DbCollectionPrefix);
+                            }
+
+                            path = Path.Combine(path, filename);
+
+                            measuredValuesFile = new FileStream(path, FileMode.CreateNew);
+                        }
+                        else if (machineState == 3 && value == 0)
+                        {
+                            // machine has been shutdown, close our stream
+                            Task.Run(async () =>
+                            {
+                                await GenerateReport(measuredValues, measuredValuesFile);
+
+                                measuredValuesFile.Close();
+                            });
+                        }
+                    }
+                }
+
+                machineState = value;
+            }
+        }
+
+        public async Task GenerateReport<T>(List<T> rows, Stream filestream) where T : class
+        {
+            //var tType = typeof(T);
+            var properties = typeof(T).GetProperties()
+             .Where(n =>
+                 n.PropertyType == typeof(string)
+                 || n.PropertyType == typeof(bool)
+                 || n.PropertyType == typeof(char)
+                 || n.PropertyType == typeof(byte)
+                 || n.PropertyType == typeof(decimal)
+                 || n.PropertyType == typeof(int)
+                 || n.PropertyType == typeof(float)
+                 || n.PropertyType == typeof(double)
+                 || n.PropertyType == typeof(long)
+                 || n.PropertyType == typeof(DateTime)
+                 || n.PropertyType == typeof(DateTime?));
+
+            var delimiter = ';';
+
+            using (StreamWriter streamWriter = new StreamWriter(filestream))
+            {
+                var header = properties
+                    .Select(n => n.Name)
+                    .Aggregate((a, b) => a + delimiter + b);
+
+                await streamWriter.WriteLineAsync(header);
+
+                foreach (var item in rows)
+                {
+                    var row = properties
+                        .Select(n => n.GetValue(item, null))
+                        .Select(n => n == null ? "null" : n.ToString())
+                        .Aggregate((a, b) => a + delimiter + b);
+
+                    await streamWriter.WriteLineAsync(row);
+                }
+            }
+        }
 
         public void WriteData(byte[] bytes)
         {
@@ -274,7 +366,19 @@ namespace VentilatorDaemon
                                 // if there is a logdirectory specified, make sure we log the result
                                 if (!string.IsNullOrEmpty(programSettings.LogDirectory))
                                 {
-                                    
+                                    measuredValues.Add(new MeasuredValues
+                                    {
+                                        Volume = volume,
+                                        Pressure = pressure,
+                                        TargetPressure = targetPressure,
+                                        Trigger = trigger,
+                                        Flow = flow,
+                                        BreathsPerMinute = bpm,
+                                        FiO2 = fio2,
+                                        FiO2Inhale = fio2i,
+                                        FiO2Exhale = fio2e,
+                                        ArduinoTime = time,
+                                    });
                                 }
                             }
                             catch (Exception e)
