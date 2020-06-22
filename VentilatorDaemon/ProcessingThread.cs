@@ -264,7 +264,7 @@ namespace VentilatorDaemon
                                 }
                             }
 
-                            var residualVolume = GetMinimum(values, (valueEntry) => valueEntry.Value.Volume, exhalemoment, endBreathingCycle - 80);
+                            var residualVolume = GetMinimum(values, (valueEntry) => valueEntry.Value.Volume, exhalemoment, endBreathingCycle - 10);
 
                             int residualVolumeSetting = 50;
 

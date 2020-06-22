@@ -78,7 +78,7 @@ namespace VentilatorDaemon
 
         private Stream measuredValuesFile;
 
-        private int machineState = -4;
+        private int machineState = -6;
         public int MachineState 
         { 
             get => machineState; 
@@ -409,6 +409,9 @@ namespace VentilatorDaemon
                     {
                         if (!serialPort.IsOpen)
                         {
+                            // send unconnected state to server
+                            await apiService.SendSettingToServerAsync("ACTIVE", -6);
+
                             ackTokenSource.Cancel();
                             alarmReceived = false;
 
@@ -577,6 +580,8 @@ namespace VentilatorDaemon
                         logger.LogError(e, e.Message);
                         await Task.Delay(1000);
                         ConnectionState = ConnectionState.SerialNotConnected;
+
+
                         alarmReceived = false;
                     }
                 }
@@ -598,6 +603,8 @@ namespace VentilatorDaemon
         public void SetPortName(CancellationToken cancellationToken)
         {
             string portName = null;
+            // send unconnected state to server
+            _ = apiService.SendSettingToServerAsync("ACTIVE", -6);
 
             Console.WriteLine("Available Ports:");
 
