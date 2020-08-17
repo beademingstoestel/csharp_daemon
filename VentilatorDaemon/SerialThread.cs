@@ -195,6 +195,12 @@ namespace VentilatorDaemon
                     logger.LogTrace(bytesToSend.ToASCIIString());
 
                     msgId++;
+
+                    // naive fix for the non binary protocol
+                    if (msgId == '\n' || msgId == '=')
+                    {
+                        msgId++;
+                    }
                 }
                 catch (Exception) { }
             }
@@ -236,7 +242,7 @@ namespace VentilatorDaemon
 
             if (crc != message[message.Length - 1])
             {
-                logger.LogDebug("Wrong crc for message '{0}', expected {1} but got {2}", message.ToHexString(), crc, message[message.Length - 1]);
+                // logger.LogDebug("Wrong crc for message '{0}', expected {1} but got {2}", message.ToHexString(), crc, message[message.Length - 1]);
                 return;
             }
 
@@ -458,7 +464,12 @@ namespace VentilatorDaemon
                                                 SentSerialMessage sentSerialMessage;
                                                 if (waitingForAck.TryRemove(msgId, out sentSerialMessage))
                                                 {
-                                                    WriteData(sentSerialMessage.MessageBytes, sentSerialMessage.MessageAcknowledged);
+
+                                                    if (!sentSerialMessage.MessageBytes.ToASCIIString().StartsWith("ALARM"))
+                                                    {
+                                                        logger.LogDebug("Resend message: " + sentSerialMessage.MessageBytes.ToASCIIString());
+                                                        WriteData(sentSerialMessage.MessageBytes, sentSerialMessage.MessageAcknowledged);
+                                                    }
                                                 }
                                             }
                                         }

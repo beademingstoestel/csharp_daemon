@@ -198,9 +198,13 @@ namespace VentilatorDaemon
                                         LastSettingReceivedAt = DateTime.Now;
                                         _ = Task.Run(() =>
                                          {
-                                             logger.LogInformation("Received setting from server: {0}={1}", name, propertyValue);
+                                             logger.LogInformation("Received setting from GUI/server: {0}={1}", name, propertyValue);
                                              var bytes = setting.ToBytes(propertyValue);
-                                             serialThread.WriteData(bytes);
+                                             serialThread.WriteData(bytes, (msgId) =>
+                                             {
+                                                 logger.LogInformation("Received setting ack from machine: {0}={1}", name, propertyValue);
+                                                 return Task.CompletedTask;
+                                             });
                                          });
 
                                         if (setting.CausesAlarmInactivity)
