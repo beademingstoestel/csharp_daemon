@@ -470,7 +470,7 @@ namespace VentilatorDaemon
                         }
 
                         await apiService.SendCalculatedValuesToServerAsync(calculatedValues);
-                        serialThread.WriteData(ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", "PEEP", calculatedValues.Peep.ToString("0.00"))));
+                        // serialThread.WriteData(ASCIIEncoding.ASCII.GetBytes(string.Format("{0}={1}", "PEEP", calculatedValues.Peep.ToString("0.00"))));
                     }
                     catch (Exception e)
                     {
