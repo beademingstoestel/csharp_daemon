@@ -128,6 +128,8 @@ namespace VentilatorDaemon
                                     if (name == "RA")
                                     {
                                         alarmThread.ResetAlarm();
+                                        handled = true;
+
                                     }
                                     else if (name == "MT")
                                     {
